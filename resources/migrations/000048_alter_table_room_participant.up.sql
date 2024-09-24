@@ -1,0 +1,1 @@
+ALTER TABLE rooms_participants ADD COLUMN IF NOT EXISTS additional_info VARCHAR(50) NULL;

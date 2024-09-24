@@ -1,0 +1,1 @@
+ALTER TABLE rooms_participants ADD position int default 0;

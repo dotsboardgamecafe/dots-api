@@ -1,0 +1,3 @@
+ALTER TABLE rooms ALTER COLUMN booking_price TYPE NUMERIC(22,2);
+ALTER TABLE tournaments ALTER COLUMN booking_price TYPE NUMERIC(22,2);
+ALTER TABLE users_transactions ALTER COLUMN price TYPE NUMERIC(22,2);

@@ -1,0 +1,3 @@
+ALTER TABLE users 
+  DROP COLUMN latest_tier,
+  ADD COLUMN IF NOT EXISTS latest_tier_id BIGINT NULL references tiers(id) ON DELETE CASCADE ON UPDATE CASCADE;

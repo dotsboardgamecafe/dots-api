@@ -1,0 +1,1 @@
+ALTER TABLE badges ADD COLUMN description text NULL;

@@ -1,0 +1,74 @@
+{
+    "app": {
+        "debug": true,
+        "host": "127.0.0.1:3000",
+        "locale": "id|en",
+        "key": "batman"
+    },
+    "db": {
+        "psql_dsn": "postgres://username:password@hostname:5432/db_name?sslmode=disable",
+        "redis": {
+            "addr": "localhost:6379",
+            "password": "",
+            "default_db": 0
+        }
+    },
+    "queue": {
+        "rabbitmq": {
+            "host": "amqp://guest:guest@localhost:5672"
+        }
+    },
+    "log": {
+        "default": "file",
+        "file": {
+            "source": "storages/logs/errors"
+        },
+        "sentry": {
+            "source": ""
+        }
+    },
+    "upload_path": "./storages/uploads", 
+    "aws": {
+        "s3": {
+            "key": "",
+            "secret": "",
+            "region": "ap-southeast-1",
+            "bucket": "vereintech-assets",
+            "public_url": "https://vereintech-assets.s3.ap-southeast-1.amazonaws.com",
+            "filepath": "/dots/uploads"
+        }
+    },
+    "resource_path": "/resources/templates",
+    "mail":{
+        "drive": "smtp",
+        "host": "smtp.gmail.com",
+        "port": 587,
+        "username": "",
+        "password": "",
+        "ecryption": "tls",
+        "mail_from": "do-not-reply@vereintech.com",
+        "mail_name": "mail name"
+    },
+    "web_url": "",
+    "new_relic": {
+        "relic_name": "Dots-Project",
+        "license_key": ""
+    },
+    "olsera_pos": {
+        "enable_redeem_once": 1,
+        "app_id": "zDMQwrbGw2RFEoG6G0nW",
+        "secret_key": "eQ61Syb2jZbC8o8n67JVsS4NvZAmynKM"
+    },
+    "xendit": {
+        "api_key": "xnd_development_s9Od3TL7hTUHAnju6kTu4xGBiUXIFIkDeg3NlsVHVju0iXBTkNiTn7lr0409AXzX",
+        "available_channel":["BCA", "QRIS"],
+        "callback_token": "S94vmIKpXCUGT5fXKVdKuKIW5ssYS8y5F2Ao0qpHNzsbIc1V",
+        "unavailable_channel":["CREDIT_CARD"],
+        "success_url": "https://dots-api.vereintech.com/v1/success-callback",
+        "failure_url": "https://dots-api.vereintech.com/v1/failure-callback"
+    },
+     "onesignal":{
+        "app_id":"",
+        "app_key":""
+    },
+}

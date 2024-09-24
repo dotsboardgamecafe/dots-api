@@ -1,0 +1,1 @@
+ALTER TABLE user_redeem_histories ALTER COLUMN invoice_amount TYPE NUMERIC(22,2);

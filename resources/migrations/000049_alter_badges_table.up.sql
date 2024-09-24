@@ -1,0 +1,3 @@
+ALTER TABLE badges DROP COLUMN IF EXISTS tier_code;
+
+ALTER TABLE badges ADD COLUMN IF NOT EXISTS badge_code varchar(50) NOT NULL UNIQUE;

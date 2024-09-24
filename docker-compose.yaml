@@ -1,0 +1,54 @@
+version: '3.9'
+networks:
+  default:
+    external: true
+    name: dots-apps
+services:
+  dots_api:
+    image: ${API_IMAGE}
+    container_name: dots_api
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./config/app:/dots-api
+      - ./storages:/storages
+    environment:
+      - REBEL_CLI_CONFIG_PATH=/dots-api/config.json
+    command: /go/bin/dots-api api -host=0.0.0.0:3000
+    restart: always
+  consumer_user_badge:
+    image: ${API_IMAGE}
+    container_name: consumer_user_badges
+    volumes:
+      - ./config/app:/dots-api
+      - ./storages:/storages
+    environment:
+      - REBEL_CLI_CONFIG_PATH=/dots-api/config.json
+    command: /go/bin/dots-api consumer-user-badges
+    restart: always
+  consumer_badges:
+    image: ${API_IMAGE}
+    container_name: consumer_badges
+    volumes:
+      - ./config/app:/dots-api
+      - ./storages:/storages
+    environment:
+      - REBEL_CLI_CONFIG_PATH=/dots-api/config.json
+    command: /go/bin/dots-api consumer-badges 
+    restart: always
+  cron:
+    image: ${API_IMAGE}
+    container_name: cron_service
+    volumes:
+      - ./config/app:/dots-api
+      - ./storages:/storages
+    environment:
+      - REBEL_CLI_CONFIG_PATH=/dots-api/config.json
+    command: >
+      sh -c "
+      echo '0 6 * * * /go/bin/dots-api tournament-reminder ' >> /etc/crontabs/root &&
+      echo '0 6 * * * /go/bin/dots-api room-reminder ' >> /etc/crontabs/root &&
+      echo '0 18 * * * /go/bin/dots-api set-inactive-room-and-tournament ' >> /etc/crontabs/root &&
+      crond -f -l 2
+      "
+    restart: always

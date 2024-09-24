@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Successful Payment Confirmation</title>
+</head>
+<body>
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Successful Payment Confirmation</h2>
+        <p>Dear {{.Name}},</p>
+        <p>We are pleased to inform you that your payment has been successfully processed.</p>
+        <p>Here are the details of your payment:</p>
+        <ul>
+            <li><strong>Transaction ID:</strong> {{.TransactionId}}</li>
+            <li><strong>Payment Date:</strong> {{.PaymentDate}}</li>
+            <li><strong>Amount:</strong> {{.Amount}}</li>
+        </ul>
+        <p>Your payment has been received and your order will be processed shortly. We will send you a shipping confirmation as soon as your order is dispatched.</p>
+        <p>Thank you for your payment. If you have any further questions, feel free to contact us.</p>
+    </div>
+</body>
+</html>
