@@ -1,4 +1,4 @@
-# dots-api API 
+# dots-api 
 
 ## Introduction
 
