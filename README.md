@@ -1,7 +1,5 @@
 # dots-api API 
 
-Verein Tech Skeleton for GO project
-
 ## Introduction
 
 - Minimum Go Requirement 1.19+
