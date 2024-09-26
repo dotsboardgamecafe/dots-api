@@ -40,7 +40,7 @@ func (c *Contract) GetHallOfFameList(db *pgxpool.Pool, ctx context.Context, para
 		query = `SELECT COALESCE(u.username, '') AS user_name,
 			u.fullname AS user_fullname,
 			u.image_url AS user_img_url,
-			t.image_url AS tournament_banner_url,
+			g.image_url AS tournament_banner_url,
 			t.name AS tournament_name,
 			c.address AS cafe_address,
 			c.name AS cafe_name
