@@ -176,6 +176,7 @@ func (h *Contract) GetTournamentDetailAct(w http.ResponseWriter, r *http.Request
 			AdditionalInfo: participant.AdditionalInfo.String,
 			Position:       participant.Position,
 			RewardPoint:    int(participant.RewardPoint.Int64),
+			LatestTier:     participant.LatestTier.String,
 		}
 		resTournamentParticipant = append(resTournamentParticipant, resParticipant)
 	}

@@ -23,9 +23,10 @@ type TimeLimitCategory struct {
 }
 
 type SpesificBoardGameCategory struct {
-	GameCode    []string `json:"game_code"`
-	NeedGM      bool     `json:"need_gm"`
-	TotalPlayed int64    `json:"total_played"`
+	GameCode     []string `json:"game_code"`
+	NeedGM       bool     `json:"need_gm"`
+	TotalPlayed  int64    `json:"total_played"`
+	BookingPrice int64    `json:"booking_price"`
 }
 
 type TournamentCategory struct {

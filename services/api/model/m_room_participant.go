@@ -37,6 +37,8 @@ type (
 		RoomId             int64          `db:"room_id"`
 		UserId             int64          `db:"user_id"`
 		ParticipationPoint int            `db:"participation_point"`
+		LatestTier         sql.NullString `db:"latest_tier"`
+		RoomBannerUri      string         `db:"room_banner_uri"`
 	}
 )
 
@@ -53,10 +55,12 @@ func (c *Contract) GetAllParticipantByRoomCode(db *pgxpool.Pool, ctx context.Con
 			rp.status,
 			rp.position,
 			rp.additional_info,
-			rp.reward_point
+			rp.reward_point,
+			tr.name as latest_tier_name 
 			FROM rooms r
 				JOIN rooms_participants rp ON rp.room_id = r.id
 				JOIN users u ON rp.user_id = u.id
+				LEFT JOIN tiers tr ON tr.id = u.latest_tier_id 
 			WHERE room_code = $1 AND rp.status = 'active' `
 	)
 
@@ -72,6 +76,7 @@ func (c *Contract) GetAllParticipantByRoomCode(db *pgxpool.Pool, ctx context.Con
 			&data.UserCode, &data.UserName, &data.UserImgUrl, &data.UserXPlayer,
 			&data.StatusWinner, &data.Status,
 			&data.Position, &data.AdditionalInfo, &data.RewardPoint,
+			&data.LatestTier,
 		)
 		if err != nil {
 			return list, c.errHandler("model.GetAllParticipantByRoomCode", err, utils.ErrScanningAllParticipantByRoomCode)
@@ -97,17 +102,20 @@ func (c *Contract) GetParticipantByRoomCodeAndUserCode(db *pgxpool.Pool, ctx con
 		rp.transaction_code,
 		rp.room_id,
 		rp.user_id,
-		r.reward_point AS participation_point
+		r.reward_point AS participation_point,
+		tr.name as latest_tier_name,
+		r.image_url AS room_banner_uri
 		FROM rooms_participants rp
 			JOIN rooms r ON rp.room_id = r.id
 			JOIN users u ON rp.user_id = u.id
+			LEFT JOIN tiers tr ON tr.id = u.latest_tier_id 
 		WHERE room_code = $1 and u.user_code =$2 `
 	)
 
 	err = db.QueryRow(ctx, queryGetRoomGameDetail, roomCode, userCode).Scan(
 		&data.UserCode, &data.UserName, &data.UserImgUrl, &data.UserXPlayer,
 		&data.StatusWinner, &data.Status, &data.TransactionCode,
-		&data.RoomId, &data.UserId, &data.ParticipationPoint,
+		&data.RoomId, &data.UserId, &data.ParticipationPoint, &data.LatestTier, &data.RoomBannerUri,
 	)
 	if err != nil && err != pgx.ErrNoRows {
 		return data, c.errHandler("model.GetParticipantByRoomCodeAndUserCode", err, utils.ErrGettingRoomByCodeAndUserCode)
@@ -166,21 +174,21 @@ func (c *Contract) CountRoomParticipantByUserId(db *pgxpool.Pool, ctx context.Co
 	return count, nil
 }
 
-func (c *Contract) CountRoomParticipantByUserIdAndGameIdAndIsGameMaster(db *pgxpool.Pool, ctx context.Context, userId, gameId int64, isGameMaster bool) (int64, error) {
+func (c *Contract) CountRoomParticipantByUserIdAndGameIdAndIsGameMasterAndBookingPrice(db *pgxpool.Pool, ctx context.Context, userId, gameId int64, bookingPrice float64, isGameMaster bool) (int64, error) {
 	var count int64
 	query := `
 		SELECT COUNT(*)
-		FROM rooms_participants rp
+			FROM rooms_participants rp
 		LEFT JOIN rooms r ON rp.room_id = r.id
 		LEFT JOIN games g ON g.id = r.game_id
 		LEFT JOIN users u ON rp.user_id = u.id
-		WHERE u.id = $1 AND rp.status = 'active' AND r.game_id = $2
+		WHERE u.id = $1 AND rp.status = 'active' AND r.game_id = $2 AND r.booking_price >= $3 
 	`
 	if isGameMaster {
 		query += " AND r.game_master_id IS NOT NULL"
 	}
 
-	err := db.QueryRow(ctx, query, userId, gameId).Scan(&count)
+	err := db.QueryRow(ctx, query, userId, gameId, bookingPrice).Scan(&count)
 	if err != nil {
 		return 0, c.errHandler("model.CountRoomParticipantByUserIdAndGameIdAndIsGameMaster", err, utils.ErrCountParticipantRoomByUserIdAndGameIdAndIsGameMaster)
 	}

@@ -24,19 +24,21 @@ type (
 	}
 
 	TournamentParticipantRespEnt struct {
-		Id              int64          `db:"id"`
-		TournamentId    int64          `db:"tournament_id"`
-		UserCode        string         `db:"user_code"`
-		UserName        string         `db:"user_name"`
-		UserImgUrl      string         `db:"user_image_url"`
-		UserXPlayer     string         `db:"user_x_player"`
-		StatusWinner    bool           `db:"status_winner"`
-		Status          string         `db:"status"`
-		AdditionalInfo  sql.NullString `db:"additional_info"`
-		Position        int            `db:"position"`
-		RewardPoint     sql.NullInt64  `db:"reward_point"`
-		TransactionCode sql.NullString `db:"transaction_code"`
-		UserId          int64          `db:"user_id"`
+		Id                  int64          `db:"id"`
+		TournamentId        int64          `db:"tournament_id"`
+		UserCode            string         `db:"user_code"`
+		UserName            string         `db:"user_name"`
+		UserImgUrl          string         `db:"user_image_url"`
+		UserXPlayer         string         `db:"user_x_player"`
+		StatusWinner        bool           `db:"status_winner"`
+		Status              string         `db:"status"`
+		AdditionalInfo      sql.NullString `db:"additional_info"`
+		LatestTier          sql.NullString `db:"latest_tier"`
+		Position            int            `db:"position"`
+		RewardPoint         sql.NullInt64  `db:"reward_point"`
+		TransactionCode     sql.NullString `db:"transaction_code"`
+		UserId              int64          `db:"user_id"`
+		TournamentBannerUri string         `db:"tournament_banner_uri"`
 	}
 )
 
@@ -55,10 +57,12 @@ func (c *Contract) GetAllParticipantByTournamentCode(db *pgxpool.Pool, ctx conte
 			tp.status,
 			tp.position,
 			tp.additional_info,
-			tp.reward_point
+			tp.reward_point, 
+			tr.name as latest_tier_name 
 			FROM tournament_participants tp
 				LEFT JOIN tournaments t ON tp.tournament_id = t.id
 				LEFT JOIN users u ON tp.user_id = u.id
+				LEFT JOIN tiers tr ON tr.id = u.latest_tier_id 
 			WHERE tournament_code = $1 AND tp.status = 'active' `
 	)
 
@@ -74,7 +78,7 @@ func (c *Contract) GetAllParticipantByTournamentCode(db *pgxpool.Pool, ctx conte
 			&data.Id, &data.TournamentId, &data.UserCode,
 			&data.UserName, &data.UserImgUrl, &data.UserXPlayer,
 			&data.StatusWinner, &data.Status, &data.Position,
-			&data.AdditionalInfo, &data.RewardPoint,
+			&data.AdditionalInfo, &data.RewardPoint, &data.LatestTier,
 		)
 		if err != nil {
 			if err == pgx.ErrNoRows {
@@ -136,18 +140,18 @@ func (c *Contract) CountTournamentParticipantByUserId(db *pgxpool.Pool, ctx cont
 	return count, nil
 }
 
-func (c *Contract) CountTournamentParticipantByUserIdAndGameIdAndIsGameMaster(db *pgxpool.Pool, ctx context.Context, userId, gameId int64) (int64, error) {
+func (c *Contract) CountTournamentParticipantByUserIdAndGameIdAndIsGameMasterAndBookingPrice(db *pgxpool.Pool, ctx context.Context, userId, gameId int64, bookingPrice float64) (int64, error) {
 	var count int64
 	query := `
 		SELECT COUNT(*)
-		FROM tournament_participants tp
+			FROM tournament_participants tp
 		LEFT JOIN tournaments t ON tp.tournament_id = t.id
 		LEFT JOIN games g ON g.id = t.game_id
 		LEFT JOIN users u ON tp.user_id = u.id
-		WHERE u.id = $1 AND t.game_id = $2 AND tp.status = 'active'
+		WHERE u.id = $1 AND t.game_id = $2 AND tp.status = 'active' AND t.booking_price >= $3
 	`
 
-	err := db.QueryRow(ctx, query, userId, gameId).Scan(&count)
+	err := db.QueryRow(ctx, query, userId, gameId, bookingPrice).Scan(&count)
 	if err != nil {
 		return 0, c.errHandler("model.CountTournamentParticipantByUserIdAndGameIdAndIsGameMaster", err, utils.ErrCountParticipantRoomByUserIdAndGameIdAndIsGameMaster)
 	}
@@ -207,7 +211,8 @@ func (c *Contract) GetParticipantByTournamentCodeAndUserCode(db *pgxpool.Pool, c
 		tp.status,
 		tp.transaction_code,
 		tp.tournament_id,
-		tp.user_id
+		tp.user_id,
+		t.image_url AS tournament_banner_uri
 		FROM tournament_participants tp
 			JOIN tournaments t ON tp.tournament_id = t.id
 			JOIN users u ON tp.user_id = u.id
@@ -217,8 +222,9 @@ func (c *Contract) GetParticipantByTournamentCodeAndUserCode(db *pgxpool.Pool, c
 	err = db.QueryRow(ctx, queryGetRoomGameDetail, tournamentCode, userCode).Scan(
 		&data.UserCode, &data.UserName, &data.UserImgUrl, &data.UserXPlayer,
 		&data.StatusWinner, &data.Status, &data.TransactionCode,
-		&data.TournamentId, &data.UserId,
+		&data.TournamentId, &data.UserId, &data.TournamentBannerUri,
 	)
+
 	if err != nil && err != pgx.ErrNoRows {
 		return data, c.errHandler("model.GetParticipantByTournamentCodeAndUserCode", err, utils.ErrGettingTournamentByCodeAndUserCode)
 	}

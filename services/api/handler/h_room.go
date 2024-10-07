@@ -122,6 +122,7 @@ func (h *Contract) GetRoomByCode(w http.ResponseWriter, r *http.Request) {
 			AdditionalInfo: participant.AdditionalInfo.String,
 			Position:       participant.Position,
 			RewardPoint:    int(participant.RewardPoint.Int64),
+			LatestTier:     participant.LatestTier.String,
 		}
 		resRoomParticipant = append(resRoomParticipant, resParticipant)
 	}

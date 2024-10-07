@@ -9,4 +9,5 @@ type RoomParticipantRes struct {
 	AdditionalInfo string `json:"additional_info"`
 	Position       int    `json:"position"`
 	RewardPoint    int    `json:"reward_point"`
+	LatestTier     string `json:"latest_tier"`
 }

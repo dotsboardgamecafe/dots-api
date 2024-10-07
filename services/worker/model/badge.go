@@ -48,12 +48,12 @@ func (h *Contract) CheckBadges(ctx context.Context, badgeCode string) error {
 						return h.errHandler("model.CheckBadge", err, utils.ErrGettingGameByCode)
 					}
 
-					roomGameCount, err := m.CountRoomParticipantByUserIdAndGameIdAndIsGameMaster(h.DB, ctx, userId, gameId, isGameMaster)
+					roomGameCount, err := m.CountRoomParticipantByUserIdAndGameIdAndIsGameMasterAndBookingPrice(h.DB, ctx, userId, gameId, specificBoardGameCategory.BookingPrice, isGameMaster)
 					if err != nil {
 						return h.errHandler("model.CheckBadge", err, utils.ErrCountingRoomParticipants)
 					}
 
-					tournamentGameCount, err := m.CountTournamentParticipantByUserIdAndGameIdAndIsGameMaster(h.DB, ctx, userId, gameId)
+					tournamentGameCount, err := m.CountTournamentParticipantByUserIdAndGameIdAndIsGameMasterAndBookingPrice(h.DB, ctx, userId, gameId, specificBoardGameCategory.BookingPrice)
 					if err != nil {
 						return h.errHandler("model.CheckBadge", err, utils.ErrCountingTournamentParticipants)
 					}

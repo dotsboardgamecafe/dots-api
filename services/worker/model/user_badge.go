@@ -15,9 +15,10 @@ type TimeLimitCategory struct {
 }
 
 type SpesificBoardGameCategory struct {
-	GameCode    []string `json:"game_code"`
-	NeedGM      bool     `json:"need_gm"`
-	TotalPlayed int64    `json:"total_played"`
+	GameCode     []string `json:"game_code"`
+	NeedGM       bool     `json:"need_gm"`
+	TotalPlayed  int64    `json:"total_played"`
+	BookingPrice float64  `json:"booking_price"`
 }
 
 func (h *Contract) CheckUserBadge(ctx context.Context, badgeType string, userId int64) error {
@@ -59,12 +60,12 @@ func (h *Contract) CheckUserBadge(ctx context.Context, badgeType string, userId 
 						return h.errHandler("model.CheckBadge", err, utils.ErrGettingGameByCode)
 					}
 
-					roomGameCount, err := m.CountRoomParticipantByUserIdAndGameIdAndIsGameMaster(h.DB, ctx, userId, gameId, isGameMaster)
+					roomGameCount, err := m.CountRoomParticipantByUserIdAndGameIdAndIsGameMasterAndBookingPrice(h.DB, ctx, userId, gameId, specificBoardGameCategory.BookingPrice, isGameMaster)
 					if err != nil {
 						return h.errHandler("model.CheckBadge", err, utils.ErrCountingRoomParticipants)
 					}
 
-					tournamentGameCount, err := m.CountTournamentParticipantByUserIdAndGameIdAndIsGameMaster(h.DB, ctx, userId, gameId)
+					tournamentGameCount, err := m.CountTournamentParticipantByUserIdAndGameIdAndIsGameMasterAndBookingPrice(h.DB, ctx, userId, gameId, specificBoardGameCategory.BookingPrice)
 					if err != nil {
 						return h.errHandler("model.CheckBadge", err, utils.ErrCountingTournamentParticipants)
 					}

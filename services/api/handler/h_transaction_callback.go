@@ -17,11 +17,12 @@ import (
 
 func (h *Contract) TransactionCallback(w http.ResponseWriter, r *http.Request) {
 	var (
-		err     error
-		ctx     = context.TODO()
-		m       = model.Contract{App: h.App}
-		req     = request.InvoiceCallbackRequest{}
-		xPlayer string
+		err            error
+		ctx            = context.TODO()
+		m              = model.Contract{App: h.App}
+		req            = request.InvoiceCallbackRequest{}
+		xPlayer        string
+		bannerImageUri string
 	)
 
 	if err = h.Bind(r, &req); err != nil {
@@ -58,6 +59,7 @@ func (h *Contract) TransactionCallback(w http.ResponseWriter, r *http.Request) {
 		h.SendBadRequest(w, err.Error())
 		return
 	}
+
 	defer func() {
 		if err != nil {
 			tx.Rollback(ctx)
@@ -126,6 +128,7 @@ func (h *Contract) TransactionCallback(w http.ResponseWriter, r *http.Request) {
 		}
 
 		xPlayer = participant.UserXPlayer
+		bannerImageUri = participant.RoomBannerUri
 
 	case utils.UserPointType["TOURNAMENT_TYPE"]:
 		// execute update status participant tournament
@@ -162,26 +165,27 @@ func (h *Contract) TransactionCallback(w http.ResponseWriter, r *http.Request) {
 		}
 
 		xPlayer = participant.UserXPlayer
+		bannerImageUri = participant.TournamentBannerUri
 	default:
 		h.SendBadRequest(w, "undefined type transaction")
 		return
 	}
 
 	// Notification Handler
-	sendNotification(h.DB, ctx, m, req.Status, trx, xPlayer)
+	sendNotification(h.DB, ctx, m, req.Status, trx, xPlayer, bannerImageUri)
 
 	h.SendSuccess(w, nil, nil)
 }
 
 // Send Notification via email & PN - private function
-func sendNotification(db *pgxpool.Pool, ctx context.Context, m model.Contract, paymentStatus string, data model.OriginUserTransactionEnt, xPlayer string) {
+func sendNotification(db *pgxpool.Pool, ctx context.Context, m model.Contract, paymentStatus string, data model.OriginUserTransactionEnt, xPlayer string, bannerImageUri string) {
 	// email := mail.New(m.App)
 	onesignal := onesignal.New(m.App)
 
 	if paymentStatus == "PAID" {
 		notifCode := utils.GeneratePrefixCode(utils.NotifPrefix)
 
-		description := data.AggregatorCode + " - Pembayaran Anda telah berhasil diproses. Anda telah berhasil masuk room / tournament!."
+		description := "Pembayaran Anda telah berhasil diproses. Anda telah berhasil masuk room / tournament!."
 
 		descriptionJSON, err := json.Marshal(description)
 		if err != nil {
@@ -189,7 +193,7 @@ func sendNotification(db *pgxpool.Pool, ctx context.Context, m model.Contract, p
 		}
 
 		// Insert data into db
-		err = m.AddNotification(db, ctx, notifCode, "user", data.UserCode, data.TransactionCode, utils.SuccessPaymentType, utils.SuccessPaymentTitle, descriptionJSON, "")
+		err = m.AddNotification(db, ctx, notifCode, "user", data.UserCode, data.TransactionCode, utils.SuccessPaymentType, utils.SuccessPaymentTitle, descriptionJSON, bannerImageUri)
 		if err != nil {
 			log.Printf("Error : %s", err)
 		}
@@ -237,7 +241,7 @@ func sendNotification(db *pgxpool.Pool, ctx context.Context, m model.Contract, p
 	}
 
 	// Insert data into db
-	err = m.AddNotification(m.DB, ctx, notifCode, "user", data.UserCode, data.TransactionCode, notifType, notifTitle, descriptionJSON, "")
+	err = m.AddNotification(m.DB, ctx, notifCode, "user", data.UserCode, data.TransactionCode, notifType, notifTitle, descriptionJSON, bannerImageUri)
 	if err != nil {
 		log.Printf("Error : %s", err)
 	}
