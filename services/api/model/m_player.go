@@ -96,7 +96,7 @@ func (c *Contract) GetUniqueGame(db *pgxpool.Pool, ctx context.Context, param re
 		queryGetTotalPlayedGame = `
 		SELECT COUNT(1) AS total_game_played, u.id AS user_id 
 			FROM users u
-				JOIN rooms_participants rp ON u.id = rp.user_id
+				JOIN rooms_participants rp ON u.id = rp.user_id AND rp.status = 'active'
 				JOIN rooms r ON r.id = rp.room_id
 				JOIN games g ON r.game_id = g.id
 		`
@@ -175,14 +175,14 @@ func (c *Contract) GetMostVP(db *pgxpool.Pool, ctx context.Context, param reques
 		queryGetRoomTotalPoint = `
 		SELECT up.user_id, SUM(up.point) AS total_point
 		FROM users_points up 
-			JOIN rooms_participants rp ON up.user_id = rp.user_id
+			JOIN rooms_participants rp ON up.user_id = rp.user_id AND rp.status = 'active'
 			JOIN rooms r ON r.id = rp.room_id
 		WHERE r.room_code = up.source_code
 		`
 		queryGetTournamentTotalPoint = `
 		SELECT up.user_id, SUM(up.point) AS total_point
 		FROM users_points up 
-			JOIN tournament_participants rp ON up.user_id = rp.user_id
+			JOIN tournament_participants rp ON up.user_id = rp.user_id AND rp.status = 'active'
 			JOIN tournaments r ON r.id = rp.tournament_id
 		WHERE r.tournament_code = up.source_code
 		`

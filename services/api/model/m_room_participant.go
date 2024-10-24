@@ -277,8 +277,8 @@ func (c *Contract) CountParticipantRoomByRoomId(db *pgxpool.Pool, ctx context.Co
 		err              error
 		totalParticipant int
 
-		queryGetTotalParticipant = `select count(id)  from rooms_participants rp 
-		where rp.status!= 'cancel' and room_id = $1
+		queryGetTotalParticipant = `select count(id) from rooms_participants rp 
+		where rp.status != 'cancel' and room_id = $1
 		group by room_id `
 	)
 

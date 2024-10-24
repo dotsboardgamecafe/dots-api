@@ -216,7 +216,7 @@ func (c *Contract) GetParticipantByTournamentCodeAndUserCode(db *pgxpool.Pool, c
 		FROM tournament_participants tp
 			JOIN tournaments t ON tp.tournament_id = t.id
 			JOIN users u ON tp.user_id = u.id
-		WHERE t.tournament_code = $1 and u.user_code =$2 `
+		WHERE t.tournament_code = $1 and u.user_code = $2 `
 	)
 
 	err = db.QueryRow(ctx, queryGetRoomGameDetail, tournamentCode, userCode).Scan(
