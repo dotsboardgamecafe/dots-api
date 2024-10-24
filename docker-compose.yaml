@@ -48,7 +48,7 @@ services:
       sh -c "
       echo '0 6 * * * /go/bin/dots-api tournament-reminder ' >> /etc/crontabs/root &&
       echo '0 6 * * * /go/bin/dots-api room-reminder ' >> /etc/crontabs/root &&
-      echo '0 18 * * * /go/bin/dots-api set-inactive-room-and-tournament ' >> /etc/crontabs/root &&
+      echo '0 */1 * * * /go/bin/dots-api set-inactive-room-and-tournament ' >> /etc/crontabs/root &&
       crond -f -l 2
       "
     restart: always
