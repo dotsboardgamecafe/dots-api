@@ -94,11 +94,22 @@ func (c *Contract) GetUniqueGame(db *pgxpool.Pool, ctx context.Context, param re
 		list                    []MonthlyTopAchieverEnt
 		paramQuery              []interface{}
 		queryGetTotalPlayedGame = `
-		SELECT COUNT(1) AS total_game_played, u.id AS user_id 
+		WITH game_counts AS (
+			SELECT u.id AS user_id, g.id AS game_id
 			FROM users u
-				JOIN rooms_participants rp ON u.id = rp.user_id AND rp.status = 'active'
-				JOIN rooms r ON r.id = rp.room_id
-				JOIN games g ON r.game_id = g.id
+			JOIN rooms_participants rp ON u.id = rp.user_id AND rp.status = 'active'
+			JOIN rooms r ON r.id = rp.room_id
+			JOIN games g ON g.id = r.game_id
+			UNION ALL
+			SELECT u.id AS user_id, g.id AS game_id
+			FROM users u
+			JOIN tournament_participants tp ON u.id = tp.user_id AND tp.status = 'active'
+			JOIN tournaments t ON t.id = tp.tournament_id
+			JOIN games g ON g.id = t.game_id
+		)
+		SELECT COUNT(DISTINCT game_id) AS total_game_played, user_id
+		FROM game_counts
+		GROUP BY user_id, game_id
 		`
 		query = `
 		SELECT
@@ -133,7 +144,7 @@ func (c *Contract) GetUniqueGame(db *pgxpool.Pool, ctx context.Context, param re
 		queryGetTotalPlayedGame += " AND " + strings.Join(orWhere, " AND ")
 	}
 
-	query += ` JOIN (` + queryGetTotalPlayedGame + ` GROUP BY u.id, g.id) AS total_games ON total_games.user_id = u.id 
+	query += ` JOIN (` + queryGetTotalPlayedGame + `) AS total_games ON total_games.user_id = u.id 
 	GROUP BY u.id `
 
 	// Limit
