@@ -360,7 +360,7 @@ func (c *Contract) UpdateTournamentStatus(db *pgxpool.Pool, ctx context.Context,
 	sql := `
 		UPDATE tournaments
 		SET updated_date = NOW(), status = $1
-		WHERE room_code = $2 AND deleted_date IS NULL
+		WHERE tournament_code = $2 AND deleted_date IS NULL
 	`
 
 	_, err := db.Exec(ctx, sql, status, tournamentCode)

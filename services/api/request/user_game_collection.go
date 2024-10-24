@@ -24,7 +24,7 @@ func (param *UserGameCollectionParam) ParseUserGameCollection(values url.Values)
 	param.Page = 1
 	param.Limit = 10
 	param.Sort = "desc"
-	param.Order = "game_id"
+	param.Order = "g.name"
 	param.Offset = 0
 
 	if page, ok := values["page"]; ok && len(page) > 0 {

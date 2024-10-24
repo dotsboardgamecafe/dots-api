@@ -1,4 +1,6 @@
-# dots-api 
+# dots-api API 
+
+Verein Tech Skeleton for GO project
 
 ## Introduction
 

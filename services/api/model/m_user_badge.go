@@ -88,7 +88,9 @@ func (c *Contract) GetUserBadgeList(db *pgxpool.Pool, ctx context.Context, userC
 
 	// Append All Where Conditions
 	if len(where) > 0 {
-		query += " WHERE " + strings.Join(where, " AND ")
+		query += " WHERE b.status = 'active' AND " + strings.Join(where, " AND ")
+	} else {
+		query += " WHERE b.status = 'active' "
 	}
 
 	{

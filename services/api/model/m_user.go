@@ -499,7 +499,7 @@ func (c *Contract) GetLatestPointAndTier(tx pgx.Tx, ctx context.Context, userId 
 	return UserCode, LatestPoint, LatestTierId, nil
 }
 
-func (c *Contract) GetOthersActivity(db *pgxpool.Pool, ctx context.Context, UserCode string) ([]UserPointEnt, error) {
+func (c *Contract) GetPlayerAndOtherActivities(db *pgxpool.Pool, ctx context.Context, UserCode string) ([]UserPointEnt, error) {
 	var (
 		err  error
 		list []UserPointEnt
@@ -518,14 +518,14 @@ func (c *Contract) GetOthersActivity(db *pgxpool.Pool, ctx context.Context, User
 				LEFT JOIN tournaments t ON t.tournament_code = up.source_code
 				LEFT JOIN rooms r ON r.room_code = up.source_code 
 				JOIN games g ON g.id = r.game_id OR g.id = t.game_id
-    	WHERE u.user_code != $1 AND up.data_source != 'redeem'
+    	WHERE up.data_source != 'redeem'
 			ORDER BY up.id DESC
 			LIMIT 5;`
 	)
 
-	rows, err := db.Query(ctx, query, UserCode)
+	rows, err := db.Query(ctx, query)
 	if err != nil {
-		return list, c.errHandler("model.GetOthersActivity", err, utils.ErrGetOthersActivity)
+		return list, c.errHandler("model.GetPlayerAndOtherActivities", err, utils.ErrGetPlayerAndOtherActivities)
 	}
 
 	defer rows.Close()
@@ -542,7 +542,7 @@ func (c *Contract) GetOthersActivity(db *pgxpool.Pool, ctx context.Context, User
 			&data.CreatedDate,
 		)
 		if err != nil {
-			return list, c.errHandler("model.GetOthersActivity", err, utils.ErrScanOthersActivity)
+			return list, c.errHandler("model.GetPlayerAndOtherActivities", err, utils.ErrScanPlayerAndOtherActivities)
 		}
 		list = append(list, data)
 	}

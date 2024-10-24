@@ -53,7 +53,7 @@ func AppSubsRoute(r chi.Router, app *bootstrap.App) {
 		r.With(app.VerifyAccessRoute).Delete("/{code}", nrWrap(h.DeleteUserAct, app.NewRelic))
 
 		// Other User's Activities
-		r.With(app.VerifyAccessRoute).Get("/{code}/activity", nrWrap(h.GetOtherPlayerActivities, app.NewRelic))
+		r.With(app.VerifyAccessRoute).Get("/{code}/activity", nrWrap(h.GetAllPlayerActivities, app.NewRelic))
 
 		// User's Point Activities
 		r.With(app.VerifyAccessRoute).Get("/{code}/point-activity", nrWrap(h.GetUserPointActivities, app.NewRelic))

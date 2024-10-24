@@ -29,14 +29,28 @@ func (c *Contract) GetUserGameCollections(db *pgxpool.Pool, ctx context.Context,
 		// where      []string
 
 		query = `
-		select rp.user_id, u.user_code ,  r.game_id , g.game_code as game_code , g."name"  as game_name, g.image_url as game_image_url  
-		from rooms r 
-		left join games g on r.game_id = g.id 
-		left join rooms_participants rp on rp.room_id = r.id 
-		left join users u on rp.user_id = u.id 
-		where u.user_code = $1
-		group by rp.user_id, u.user_code, r.game_id , game_code, game_name, game_image_url
-		 `
+		SELECT
+			u.id,
+			u.user_code,
+			g.id,
+			g.game_code AS game_code,
+			g."name" AS game_name,
+			g.image_url AS game_image_url
+		FROM games g
+		LEFT JOIN tournaments t ON g.id = t.game_id
+		LEFT JOIN tournament_participants tp ON tp.tournament_id = t.id AND tp.status = 'active'
+		left JOIN rooms r ON g.id = r.game_id
+		left JOIN rooms_participants rp ON rp.room_id = r.id AND rp.status = 'active'
+		LEFT JOIN users u ON rp.user_id = u.id OR tp.user_id = u.id
+		WHERE u.user_code = $1
+		GROUP BY
+			u.id,
+			u.user_code,
+			g.id,
+			g.game_code,
+			g."name",
+			g.image_url 
+		`
 	)
 
 	paramQuery = append(paramQuery, userCode)

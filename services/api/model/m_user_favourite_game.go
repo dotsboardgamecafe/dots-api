@@ -14,7 +14,6 @@ import (
 type UserFavouriteGameResp struct {
 	UserId                  sql.NullInt64  `db:"user_id"`
 	UserCode                sql.NullString `db:"user_code"`
-	GameCategoryId          sql.NullInt64  `db:"game_category_id"`
 	GameCategoryName        sql.NullString `db:"game_category_name"`
 	GameCategoryDescription sql.NullString `db:"game_category_description"`
 	GameCategoryImageUrl    sql.NullString `db:"game_category_image_url"`
@@ -29,15 +28,28 @@ func (c *Contract) GetUserFavouriteGames(db *pgxpool.Pool, ctx context.Context, 
 		totalData  int
 		// where      []string
 
-		query = `select rp.user_id, u.user_code , gc.id as game_category_id , gc.category_name  as game_category_name,gc.category_description , gc.category_image_url , count(gc.id) as total_play   
-		from rooms r 
-		left join games g on r.game_id = g.id 
-		left join games_categories gc on gc.game_id= g.id 
-		left join rooms_participants rp on rp.room_id = r.id 
-		left join users u on rp.user_id = u.id 
-		where u.user_code = $1
-		group by rp.user_id,u.user_code, gc.id , game_category_name, gc.category_description , gc.category_image_url 
-		order by total_play desc `
+		query = `SELECT
+					u.id AS user_id,
+					u.user_code,
+					gc.category_name AS game_category_name,
+					gc.category_description,
+					gc.category_image_url,
+					COUNT(gc.id) AS total_play
+				FROM games g
+				JOIN games_categories gc ON gc.game_id = g.id
+				LEFT JOIN rooms r ON r.game_id = g.id
+				LEFT JOIN rooms_participants rp ON rp.room_id = r.id AND rp.status = 'active'
+				LEFT JOIN tournaments t ON t.game_id = g.id
+				LEFT JOIN tournament_participants tp ON tp.tournament_id = t.id AND tp.status = 'active'
+				LEFT JOIN users u ON rp.user_id = u.id OR tp.user_id = u.id
+				WHERE u.user_code = $1
+				GROUP BY
+					u.id,
+					u.user_code,
+					gc.category_name,
+					gc.category_description,
+					gc.category_image_url
+				ORDER BY total_play DESC `
 	)
 
 	paramQuery = append(paramQuery, userCode)
@@ -75,7 +87,7 @@ func (c *Contract) GetUserFavouriteGames(db *pgxpool.Pool, ctx context.Context, 
 	defer rows.Close()
 	for rows.Next() {
 		var data UserFavouriteGameResp
-		err = rows.Scan(&data.UserId, &data.UserCode, &data.GameCategoryId, &data.GameCategoryName, &data.GameCategoryDescription, &data.GameCategoryImageUrl, &data.TotalPlay)
+		err = rows.Scan(&data.UserId, &data.UserCode, &data.GameCategoryName, &data.GameCategoryDescription, &data.GameCategoryImageUrl, &data.TotalPlay)
 		if err != nil {
 			return list, param, c.errHandler("model.GetUserFavouriteGames", err, utils.ErrScanningListUserFavouriteGame)
 		}

@@ -3,7 +3,6 @@ package response
 type UserFavouriteGameRes struct {
 	UserId                  int64  `json:"user_id"`
 	UserCode                string `json:"user_code"`
-	GameCategoryId          int64  `json:"game_category_id"`
 	GameCategoryName        string `json:"game_category_name"`
 	GameCategoryDescription string `json:"game_category_description"`
 	GameCategoryImageUrl    string `json:"game_category_image_url"`

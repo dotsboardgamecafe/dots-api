@@ -291,7 +291,7 @@ func (h *Contract) UpdatePasswordUserAct(w http.ResponseWriter, r *http.Request)
 	h.SendSuccess(w, nil, nil)
 }
 
-func (h *Contract) GetOtherPlayerActivities(w http.ResponseWriter, r *http.Request) {
+func (h *Contract) GetAllPlayerActivities(w http.ResponseWriter, r *http.Request) {
 	var (
 		err  error
 		ctx  = context.TODO()
@@ -300,7 +300,7 @@ func (h *Contract) GetOtherPlayerActivities(w http.ResponseWriter, r *http.Reque
 		res  = make([]response.PlayerActivitiesRes, 0)
 	)
 
-	data, err := m.GetOthersActivity(h.DB, ctx, code)
+	data, err := m.GetPlayerAndOtherActivities(h.DB, ctx, code)
 	if err != nil {
 		h.SendBadRequest(w, err.Error())
 		return

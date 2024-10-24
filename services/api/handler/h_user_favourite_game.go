@@ -39,7 +39,6 @@ func (h *Contract) GetUserFavouriteGameAct(w http.ResponseWriter, r *http.Reques
 		res = append(res, response.UserFavouriteGameRes{
 			UserId:                  v.UserId.Int64,
 			UserCode:                v.UserCode.String,
-			GameCategoryId:          v.GameCategoryId.Int64,
 			GameCategoryName:        v.GameCategoryName.String,
 			GameCategoryDescription: v.GameCategoryDescription.String,
 			GameCategoryImageUrl:    v.GameCategoryImageUrl.String,

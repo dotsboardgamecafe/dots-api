@@ -196,12 +196,12 @@ var (
 	ErrDeletingTier       = "Error deleting tier"
 
 	// Error for module user point
-	ErrGetOthersActivity        = "Error getting other user activites"
-	ErrScanOthersActivity       = "Error scanning other user activites"
-	ErrGetUsersPointActivity    = "Error getting user point activites"
-	ErrScanUsersPointActivity   = "Error scanning user point activites"
-	ErrAddUserPoint             = "Error adding user point"
-	ErrGetCurrentUserTotalPoint = "Error counting user point"
+	ErrGetPlayerAndOtherActivities  = "Error getting other user activites"
+	ErrScanPlayerAndOtherActivities = "Error scanning other user activites"
+	ErrGetUsersPointActivity        = "Error getting user point activites"
+	ErrScanUsersPointActivity       = "Error scanning user point activites"
+	ErrAddUserPoint                 = "Error adding user point"
+	ErrGetCurrentUserTotalPoint     = "Error counting user point"
 
 	// Error for module reward
 	ErrGettingListReward   = "Error getting list reward"
