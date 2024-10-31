@@ -161,22 +161,20 @@ func (c *Contract) GetGameList(db *pgxpool.Pool, ctx context.Context, param requ
 		where = append(where, strings.Join(orWhere, " AND "))
 	}
 
-	if param.MinimalParticipant > 0 {
-		var orWhere []string
-		paramQuery = append(paramQuery, param.MinimalParticipant)
-		orWhere = append(orWhere, fmt.Sprintf("games.minimal_participant >= $%d ", len(paramQuery)))
-		paramQuery = append(paramQuery, param.MinimalParticipant)
-		orWhere = append(orWhere, fmt.Sprintf("games.maximum_participant >= $%d ", len(paramQuery)))
-		where = append(where, strings.Join(orWhere, " AND "))
-	}
-
-	if param.MaximumParticipant > 0 {
-		var orWhere []string
-		paramQuery = append(paramQuery, param.MaximumParticipant)
-		orWhere = append(orWhere, fmt.Sprintf("games.maximum_participant <= $%d ", len(paramQuery)))
-		paramQuery = append(paramQuery, param.MaximumParticipant)
-		orWhere = append(orWhere, fmt.Sprintf("games.minimal_participant <= $%d ", len(paramQuery)))
-		where = append(where, strings.Join(orWhere, " AND "))
+	if param.MinimalParticipant > 0 || param.MaximumParticipant > 0 {
+		if param.MinimalParticipant > 0 && param.MaximumParticipant > 0 {
+			paramQuery = append(paramQuery, param.MinimalParticipant)
+			paramQuery = append(paramQuery, param.MaximumParticipant)
+			where = append(where, fmt.Sprintf(
+				"(games.minimal_participant <= $%d AND games.maximum_participant BETWEEN $%d AND $%d)",
+				len(paramQuery)-1, len(paramQuery)-1, len(paramQuery)))
+		} else if param.MinimalParticipant > 0 {
+			paramQuery = append(paramQuery, param.MinimalParticipant)
+			where = append(where, fmt.Sprintf("games.minimal_participant >= $%d", len(paramQuery)))
+		} else if param.MaximumParticipant > 0 {
+			paramQuery = append(paramQuery, param.MaximumParticipant)
+			where = append(where, fmt.Sprintf("games.maximum_participant <= $%d", len(paramQuery)))
+		}
 	}
 
 	// Handling Soft Delete

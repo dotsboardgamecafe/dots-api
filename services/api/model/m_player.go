@@ -93,23 +93,21 @@ func (c *Contract) GetUniqueGame(db *pgxpool.Pool, ctx context.Context, param re
 		err                     error
 		list                    []MonthlyTopAchieverEnt
 		paramQuery              []interface{}
-		queryGetTotalPlayedGame = `
-		WITH game_counts AS (
+		queryGetTotalGameOnRoom = `
 			SELECT u.id AS user_id, g.id AS game_id
 			FROM users u
-			JOIN rooms_participants rp ON u.id = rp.user_id AND rp.status = 'active'
-			JOIN rooms r ON r.id = rp.room_id
-			JOIN games g ON g.id = r.game_id
-			UNION ALL
+			JOIN rooms_participants AS participant ON u.id = participant.user_id AND participant.status = 'active'
+			JOIN rooms AS event ON event.id = participant.room_id
+			JOIN games g ON g.id = event.game_id
+			WHERE 1 = 1
+		`
+		queryGetTotalGameOnTournament = `
 			SELECT u.id AS user_id, g.id AS game_id
 			FROM users u
-			JOIN tournament_participants tp ON u.id = tp.user_id AND tp.status = 'active'
-			JOIN tournaments t ON t.id = tp.tournament_id
-			JOIN games g ON g.id = t.game_id
-		)
-		SELECT COUNT(DISTINCT game_id) AS total_game_played, user_id
-		FROM game_counts
-		GROUP BY user_id, game_id
+			JOIN tournament_participants AS participant ON u.id = participant.user_id AND participant.status = 'active'
+			JOIN tournaments AS event ON event.id = participant.tournament_id
+			JOIN games g ON g.id = event.game_id
+			WHERE 1 = 1
 		`
 		query = `
 		SELECT
@@ -127,22 +125,35 @@ func (c *Contract) GetUniqueGame(db *pgxpool.Pool, ctx context.Context, param re
 	if param.Month > 0 && param.Year > 0 {
 		var orWhere []string
 		paramQuery = append(paramQuery, param.Month)
-		orWhere = append(orWhere, fmt.Sprintf("EXTRACT('month' FROM rp.created_date) = $%d", len(paramQuery)))
+		orWhere = append(orWhere, fmt.Sprintf("EXTRACT('month' FROM participant.created_date) = $%d", len(paramQuery)))
 
 		paramQuery = append(paramQuery, param.Year)
-		orWhere = append(orWhere, fmt.Sprintf("EXTRACT('year' FROM rp.created_date) = $%d", len(paramQuery)))
+		orWhere = append(orWhere, fmt.Sprintf("EXTRACT('year' FROM participant.created_date) = $%d", len(paramQuery)))
 
-		queryGetTotalPlayedGame += " AND " + strings.Join(orWhere, " AND ")
+		queryGetTotalGameOnRoom += " AND " + strings.Join(orWhere, " AND ")
+		queryGetTotalGameOnTournament += " AND " + strings.Join(orWhere, " AND ")
 	}
 
 	// CAFE CITY
 	if len(param.CafeCity) > 0 {
 		var orWhere []string
 		paramQuery = append(paramQuery, strings.ToLower(param.CafeCity))
-		orWhere = append(orWhere, fmt.Sprintf("LOWER(r.location_city) = $%d", len(paramQuery)))
+		orWhere = append(orWhere, fmt.Sprintf("LOWER(event.location_city) = $%d", len(paramQuery)))
 
-		queryGetTotalPlayedGame += " AND " + strings.Join(orWhere, " AND ")
+		queryGetTotalGameOnRoom += " AND " + strings.Join(orWhere, " AND ")
+		queryGetTotalGameOnTournament += " AND " + strings.Join(orWhere, " AND ")
 	}
+
+	queryGetTotalPlayedGame := `
+		WITH game_counts AS (
+			` + queryGetTotalGameOnRoom + `
+			UNION ALL
+			` + queryGetTotalGameOnTournament + `
+		)
+		SELECT COUNT(DISTINCT game_id) AS total_game_played, user_id
+		FROM game_counts
+		GROUP BY user_id, game_id
+	`
 
 	query += ` JOIN (` + queryGetTotalPlayedGame + `) AS total_games ON total_games.user_id = u.id 
 	GROUP BY u.id `
