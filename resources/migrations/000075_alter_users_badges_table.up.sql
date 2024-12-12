@@ -1,1 +1,1 @@
-ALTER TABLE users_badges ADD COLUMN timestamptz(0) NULL;
+ALTER TABLE users_badges ADD COLUMN updated_date timestamptz(0) NULL;

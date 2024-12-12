@@ -17,6 +17,11 @@ type (
 		Order   string `json:"order"`
 		MaxPage int    `json:"max_page"`
 	}
+
+	UserGameCollectionAddPayload struct {
+		UserCode string
+		GameCode string `json:"game_code" validate:"required"`
+	}
 )
 
 func (param *UserGameCollectionParam) ParseUserGameCollection(values url.Values) error {

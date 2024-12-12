@@ -5,8 +5,10 @@ import (
 	"database/sql"
 	"dots-api/lib/utils"
 	"dots-api/services/api/request"
+	"errors"
 	"fmt"
 	"math"
+	"time"
 
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -18,6 +20,7 @@ type UserGameCollectionResp struct {
 	GameCode     sql.NullString `db:"game_code"`
 	GameName     sql.NullString `db:"game_name"`
 	GameImageUrl sql.NullString `db:"game_image_url"`
+	CreatedDate  time.Time      `db:"created_date"`
 }
 
 func (c *Contract) GetUserGameCollections(db *pgxpool.Pool, ctx context.Context, userCode string, param request.UserGameCollectionParam) ([]UserGameCollectionResp, request.UserGameCollectionParam, error) {
@@ -35,21 +38,12 @@ func (c *Contract) GetUserGameCollections(db *pgxpool.Pool, ctx context.Context,
 			g.id,
 			g.game_code AS game_code,
 			g."name" AS game_name,
-			g.image_url AS game_image_url
+			g.image_url AS game_image_url,
+			ugc.created_date
 		FROM games g
-		LEFT JOIN tournaments t ON g.id = t.game_id
-		LEFT JOIN tournament_participants tp ON tp.tournament_id = t.id AND tp.status = 'active'
-		left JOIN rooms r ON g.id = r.game_id
-		left JOIN rooms_participants rp ON rp.room_id = r.id AND rp.status = 'active'
-		LEFT JOIN users u ON rp.user_id = u.id OR tp.user_id = u.id
+		LEFT JOIN users_game_collections ugc ON ugc.game_id = g.id
+		LEFT JOIN users u ON ugc.user_id = u.id
 		WHERE u.user_code = $1
-		GROUP BY
-			u.id,
-			u.user_code,
-			g.id,
-			g.game_code,
-			g."name",
-			g.image_url 
 		`
 	)
 
@@ -88,7 +82,7 @@ func (c *Contract) GetUserGameCollections(db *pgxpool.Pool, ctx context.Context,
 	defer rows.Close()
 	for rows.Next() {
 		var data UserGameCollectionResp
-		err = rows.Scan(&data.UserId, &data.UserCode, &data.GameId, &data.GameCode, &data.GameName, &data.GameImageUrl)
+		err = rows.Scan(&data.UserId, &data.UserCode, &data.GameId, &data.GameCode, &data.GameName, &data.GameImageUrl, &data.CreatedDate)
 		if err != nil {
 			return list, param, c.errHandler("model.GetUserGameCollections", err, utils.ErrScanningListUserGameCollection)
 		}
@@ -96,4 +90,68 @@ func (c *Contract) GetUserGameCollections(db *pgxpool.Pool, ctx context.Context,
 	}
 
 	return list, param, nil
+}
+
+func (c *Contract) AddUserGameCollections(db *pgxpool.Pool, ctx context.Context, payload request.UserGameCollectionAddPayload) error {
+	var (
+		err error
+	)
+
+	res, err := db.Exec(ctx, `
+		INSERT INTO users_game_collections(user_id, game_id, created_date)
+			SELECT
+				(SELECT id FROM users WHERE user_code = $1)::int as user_id,
+				(SELECT id FROM games WHERE game_code = $2)::int as game_id,
+				CURRENT_TIMESTAMP as created_date
+	`, payload.UserCode, payload.GameCode)
+
+	if err != nil {
+		return c.errHandler("model.AddUserGameCollection", err, utils.ErrAddingUserGameCollection)
+	}
+
+	if res.RowsAffected() == 0 {
+		return c.errHandler("model.AddUserGameCollection", errors.New(utils.ErrAddingUserGameCollection), utils.ErrAddingUserGameCollection)
+	}
+
+	return nil
+}
+
+func (c *Contract) CheckUserGameCollectionExists(db *pgxpool.Pool, ctx context.Context, payload request.UserGameCollectionAddPayload) error {
+	var (
+		err        error
+		res        bool
+		query      string
+		paramQuery []interface{}
+	)
+
+	paramQuery = append(paramQuery, payload.UserCode)
+	paramQuery = append(paramQuery, payload.GameCode)
+
+	query = `
+		SELECT EXISTS(
+			SELECT
+				u.id,
+				u.user_code,
+				g.id,
+				g.game_code AS game_code,
+				g."name" AS game_name,
+				g.image_url AS game_image_url
+			FROM games g
+			LEFT JOIN users_game_collections ugc ON ugc.game_id = g.id
+			LEFT JOIN users u ON ugc.user_id = u.id
+			WHERE u.user_code = $1 AND g.game_code = $2
+			LIMIT 1
+		) as exists
+	`
+
+	err = db.QueryRow(ctx, query, paramQuery...).Scan(&res)
+	if err != nil {
+		return c.errHandler("model.CheckUserGameCollection", err, utils.ErrUserGameCollectionExists)
+	}
+
+	if res {
+		return c.errHandler("model.CheckUserGameCollection", errors.New(utils.ErrUserGameCollectionExists), utils.ErrUserGameCollectionExists)
+	}
+
+	return nil
 }

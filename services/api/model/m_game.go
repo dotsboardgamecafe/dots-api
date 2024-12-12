@@ -3,10 +3,12 @@ package model
 import (
 	"context"
 	"database/sql"
+	"dots-api/lib/qr"
 	"dots-api/lib/utils"
 	"dots-api/services/api/request"
 	"fmt"
 	"math"
+	"os"
 	"strings"
 	"time"
 
@@ -380,4 +382,26 @@ func (c *Contract) GetGameIdByCode(db *pgxpool.Pool, ctx context.Context, code s
 		return id, c.errHandler("model.GetGameIdByCode", err, utils.ErrGettingGameByCode)
 	}
 	return id, nil
+}
+
+func (c *Contract) GetGameQRCodeByCode(ctx context.Context, code string) (string, error) {
+	fileName := code + "_QR"
+	qrString, err := utils.ImageToBase64(c.Config.GetString("upload_path") + "/" + fileName)
+
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return "", c.errHandler("model.AddGameQRCode", err, utils.ErrGettingGameQrCode)
+		}
+		fileName, err = qr.GenerateQRCode(code, fileName, c.Config.GetString("upload_path"))
+		if err != nil {
+			return "", c.errHandler("model.AddGameQRCode", err, utils.ErrGettingGameQrCode)
+		}
+
+		qrString, err = utils.ImageToBase64(c.Config.GetString("upload_path") + "/" + fileName)
+		if err != nil {
+			return "", c.errHandler("model.AddGameQRCode", err, utils.ErrGettingGameQrCode)
+		}
+	}
+
+	return qrString, nil
 }

@@ -448,3 +448,27 @@ func (h *Contract) DeleteGameAct(w http.ResponseWriter, r *http.Request) {
 	// Send success response
 	h.SendSuccess(w, nil, nil)
 }
+
+// GetGameQRCodeAct ...
+func (h *Contract) GetGameQRCodeAct(w http.ResponseWriter, r *http.Request) {
+	var (
+		err  error
+		code = chi.URLParam(r, "code")
+		ctx  = context.TODO()
+		m    = model.Contract{App: h.App}
+	)
+
+	data, err := m.GetGameByCode(h.DB, ctx, code)
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		return
+	}
+
+	qr, err := m.GetGameQRCodeByCode(ctx, data.GameCode)
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		return
+	}
+
+	h.SendSuccess(w, response.GameQRCodeRes{Source: qr}, nil)
+}

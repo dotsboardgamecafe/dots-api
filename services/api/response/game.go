@@ -60,6 +60,10 @@ type UsersHavePlayedGameHistoryRes struct {
 	UserImage string `json:"user_image"`
 }
 
+type GameQRCodeRes struct {
+	Source string `json:"qrcode"`
+}
+
 func BuildCollectionURLResp(data string) []string {
 	var resp []string
 	_ = json.Unmarshal([]byte(data), &resp)
