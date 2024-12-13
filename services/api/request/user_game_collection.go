@@ -21,6 +21,7 @@ type (
 	UserGameCollectionAddPayload struct {
 		UserCode string
 		GameCode string `json:"game_code" validate:"required"`
+		GameID   int64
 	}
 )
 

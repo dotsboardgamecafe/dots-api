@@ -32,18 +32,18 @@ func (c *Contract) GetUserGameCollections(db *pgxpool.Pool, ctx context.Context,
 		// where      []string
 
 		query = `
-		SELECT
-			u.id,
-			u.user_code,
-			g.id,
-			g.game_code AS game_code,
-			g."name" AS game_name,
-			g.image_url AS game_image_url,
-			ugc.created_date
-		FROM games g
-		LEFT JOIN users_game_collections ugc ON ugc.game_id = g.id
-		LEFT JOIN users u ON ugc.user_id = u.id
-		WHERE u.user_code = $1
+			SELECT
+				u.id,
+				u.user_code,
+				g.id,
+				g.game_code AS game_code,
+				g."name" AS game_name,
+				g.image_url AS game_image_url,
+				ugc.created_date
+			FROM games g
+			LEFT JOIN users_game_collections ugc ON ugc.game_id = g.id
+			LEFT JOIN users u ON ugc.user_id = u.id
+			WHERE u.user_code = $1
 		`
 	)
 
@@ -92,7 +92,7 @@ func (c *Contract) GetUserGameCollections(db *pgxpool.Pool, ctx context.Context,
 	return list, param, nil
 }
 
-func (c *Contract) AddUserGameCollections(db *pgxpool.Pool, ctx context.Context, payload request.UserGameCollectionAddPayload) error {
+func (c *Contract) AddUserGameCollectionsByQRCode(db *pgxpool.Pool, ctx context.Context, payload request.UserGameCollectionAddPayload) error {
 	var (
 		err error
 	)
@@ -101,9 +101,9 @@ func (c *Contract) AddUserGameCollections(db *pgxpool.Pool, ctx context.Context,
 		INSERT INTO users_game_collections(user_id, game_id, created_date)
 			SELECT
 				(SELECT id FROM users WHERE user_code = $1)::int as user_id,
-				(SELECT id FROM games WHERE game_code = $2)::int as game_id,
+				$2,
 				CURRENT_TIMESTAMP as created_date
-	`, payload.UserCode, payload.GameCode)
+	`, payload.UserCode, payload.GameID)
 
 	if err != nil {
 		return c.errHandler("model.AddUserGameCollection", err, utils.ErrAddingUserGameCollection)

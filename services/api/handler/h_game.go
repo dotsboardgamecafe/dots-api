@@ -470,5 +470,5 @@ func (h *Contract) GetGameQRCodeAct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.SendSuccess(w, response.GameQRCodeRes{Source: qr}, nil)
+	h.SendSuccess(w, qr, nil)
 }

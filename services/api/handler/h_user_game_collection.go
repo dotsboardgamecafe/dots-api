@@ -67,20 +67,21 @@ func (h *Contract) AddUserGameCollectionAct(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	_, err = m.GetGameByCode(h.DB, ctx, payload.GameCode)
+	game, err := m.GetGameByCode(h.DB, ctx, payload.GameCode)
 	if err != nil {
 		h.SendBadRequest(w, err.Error())
 		return
 	}
 
 	payload.UserCode = code
+	payload.GameID = game.Id
 	err = m.CheckUserGameCollectionExists(h.DB, ctx, payload)
 	if err != nil {
 		h.SendBadRequest(w, err.Error())
 		return
 	}
 
-	err = m.AddUserGameCollections(h.DB, ctx, payload)
+	err = m.AddUserGameCollectionsByQRCode(h.DB, ctx, payload)
 	if err != nil {
 		h.SendBadRequest(w, err.Error())
 		return
