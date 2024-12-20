@@ -16,6 +16,7 @@ type (
 		UserName    string `json:"username" validate:"max=15"`
 		Password    string `json:"password" validate:"required,max=100"`
 		Status      string `json:"status" validate:"required,max=50"`
+		Role        string `json:"role" validate:"required,eq=admin|eq=cashier"`
 		PhoneNumber string `json:"phone_number" validate:"max=15"`
 		ImageUrl    string `json:"image_url"`
 	}
@@ -26,6 +27,7 @@ type (
 		UserName    string `json:"username" validate:"max=15"`
 		Password    string `json:"password" validate:"max=100"`
 		Status      string `json:"status" validate:"max=50"`
+		Role        string `json:"role" validate:"omitempty,eq=admin|eq=cashier"`
 		PhoneNumber string `json:"phone_number" validate:"max=15"`
 		ImageUrl    string `json:"image_url"`
 	}
@@ -40,9 +42,10 @@ type (
 		Offset  int    `json:"offset"`
 		Count   int    `json:"count"`
 		Sort    string `json:"sort"`
-		Order   string `json:"order"`
+		SortKey string `json:"sort_key"`
 		Keyword string `json:"keyword"`
 		Status  string `json:"status"`
+		Role    string `json:"role"`
 	}
 )
 
@@ -51,9 +54,10 @@ func (param *AdminParam) ParseAdmin(values url.Values) error {
 	param.Page = 1
 	param.Limit = 10
 	param.Sort = "desc"
-	param.Order = "id"
+	param.SortKey = "a.id"
 	param.Status = ""
 	param.Offset = 0
+	param.Role = ""
 
 	if page, ok := values["page"]; ok && len(page) > 0 {
 		if p, err := strconv.Atoi(page[0]); err == nil && p > 1 {
@@ -65,10 +69,14 @@ func (param *AdminParam) ParseAdmin(values url.Values) error {
 		param.Sort = "asc"
 	}
 
-	if order, ok := values["order"]; ok && len(order) > 0 {
+	if sortKey, ok := values["sort_key"]; ok && len(sortKey) > 0 {
 		arrStr := new(array.ArrStr)
-		if exist, _ := arrStr.InArray(order[0], []string{"id", "email", "name", "status", "created_date"}); exist {
-			param.Order = order[0]
+		if exist, _ := arrStr.InArray(sortKey[0], []string{"id", "email", "name", "status", "role", "created_date"}); exist {
+			if sortKey[0] == "role" {
+				param.SortKey = "r.name"
+			} else {
+				param.SortKey = "a." + sortKey[0]
+			}
 		}
 	}
 
@@ -81,6 +89,12 @@ func (param *AdminParam) ParseAdmin(values url.Values) error {
 
 	if keyword, ok := values["keyword"]; ok && len(keyword) > 0 {
 		param.Keyword = keyword[0]
+	}
+
+	if role, ok := values["role"]; ok && len(role) > 0 {
+		if role[0] == "admin" || role[0] == "cashier" {
+			param.Role = role[0]
+		}
 	}
 
 	if limit, ok := values["limit"]; ok && len(limit) > 0 {

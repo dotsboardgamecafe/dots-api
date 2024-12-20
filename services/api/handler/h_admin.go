@@ -95,7 +95,7 @@ func (h *Contract) AddAdminAct(w http.ResponseWriter, r *http.Request) {
 
 	// Generate Random Code
 	code := utils.GeneratePrefixCode(utils.AdminPrefix)
-	err = m.AddAdmin(h.DB, ctx, code, req.Email, req.Name, req.UserName, req.Password, req.Status, req.PhoneNumber, req.ImageUrl)
+	err = m.AddAdmin(h.DB, ctx, code, req.Email, req.Name, req.UserName, req.Password, req.Status, req.Role, req.PhoneNumber, req.ImageUrl)
 	if err != nil {
 		h.SendBadRequest(w, err.Error())
 		return
@@ -128,6 +128,7 @@ func (h *Contract) GetAdminDetailAct(w http.ResponseWriter, r *http.Request) {
 		Status:      data.Status,
 		ImageURL:    data.ImageURL,
 		PhoneNumber: data.PhoneNumber,
+		Role:        data.Role,
 	}, nil)
 }
 
@@ -162,7 +163,7 @@ func (h *Contract) UpdateAdminAct(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	err = m.UpdateAdminByCode(h.DB, ctx, code, req.Email, req.Name, req.UserName, req.Password, req.Status, req.PhoneNumber, req.ImageUrl)
+	err = m.UpdateAdminByCode(h.DB, ctx, code, req.Email, req.Name, req.UserName, req.Password, req.Status, req.Role, req.PhoneNumber, req.ImageUrl)
 	if err != nil {
 		h.SendBadRequest(w, err.Error())
 		return
@@ -231,6 +232,7 @@ func ToResponseAdminList(data []model.AdminEnt) []response.AdminRes {
 			Status:      v.Status,
 			ImageURL:    v.ImageURL,
 			PhoneNumber: v.PhoneNumber,
+			Role:        v.Role,
 		})
 	}
 

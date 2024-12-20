@@ -5,6 +5,7 @@ type AdminRes struct {
 	Email       string `json:"email"`
 	Name        string `json:"name"`
 	UserName    string `json:"user_name"`
+	Role        string `json:"role"`
 	Status      string `json:"status"`
 	ImageURL    string `json:"image_url"`
 	PhoneNumber string `json:"phone_number"`
