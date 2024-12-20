@@ -17,6 +17,7 @@ var (
 	RoleSuperAdminId = 1
 	RoleAdminId      = 2
 	RoleMemberId     = 3
+	RoleCashierId    = 4
 
 	// verification type
 	VerifyRegistration = "verify_registration"

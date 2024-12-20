@@ -90,26 +90,11 @@ func (c *Contract) GetHallOfFameList(db *pgxpool.Pool, ctx context.Context, para
 
 func (c *Contract) GetUniqueGame(db *pgxpool.Pool, ctx context.Context, param request.MonthlyTopAchieverParam) ([]MonthlyTopAchieverEnt, request.MonthlyTopAchieverParam, error) {
 	var (
-		err                     error
-		list                    []MonthlyTopAchieverEnt
-		paramQuery              []interface{}
-		queryGetTotalGameOnRoom = `
-			SELECT u.id AS user_id, g.id AS game_id
-			FROM users u
-			JOIN rooms_participants AS participant ON u.id = participant.user_id AND participant.status = 'active'
-			JOIN rooms AS event ON event.id = participant.room_id
-			JOIN games g ON g.id = event.game_id
-			WHERE 1 = 1
-		`
-		queryGetTotalGameOnTournament = `
-			SELECT u.id AS user_id, g.id AS game_id
-			FROM users u
-			JOIN tournament_participants AS participant ON u.id = participant.user_id AND participant.status = 'active'
-			JOIN tournaments AS event ON event.id = participant.tournament_id
-			JOIN games g ON g.id = event.game_id
-			WHERE 1 = 1
-		`
-		query = `
+		err        error
+		list       []MonthlyTopAchieverEnt
+		paramQuery []interface{}
+		where      []string
+		query      = `
 		SELECT
 			ROW_NUMBER() OVER(ORDER BY COUNT(1) DESC) AS rank,
 			COALESCE(u.username, '') AS user_name,
@@ -117,7 +102,13 @@ func (c *Contract) GetUniqueGame(db *pgxpool.Pool, ctx context.Context, param re
 			u.image_url AS user_img_url,
 			0 AS total_point,
 			COUNT(1) AS total_played_game
-		FROM users u
+		FROM
+			users_game_collections ugc 
+		LEFT JOIN
+			users u ON u.id = ugc.user_id
+		LEFT JOIN
+			games g  ON g.id = ugc.game_id 
+		LEFT JOIN cafes c  ON c.id = g.cafe_id
 		`
 	)
 
@@ -125,42 +116,26 @@ func (c *Contract) GetUniqueGame(db *pgxpool.Pool, ctx context.Context, param re
 	if param.Month > 0 && param.Year > 0 {
 		var orWhere []string
 		paramQuery = append(paramQuery, param.Month)
-		orWhere = append(orWhere, fmt.Sprintf("EXTRACT('month' FROM participant.created_date) = $%d", len(paramQuery)))
+		orWhere = append(orWhere, fmt.Sprintf("EXTRACT('month' FROM ugc.created_date) = $%d", len(paramQuery)))
 
 		paramQuery = append(paramQuery, param.Year)
-		orWhere = append(orWhere, fmt.Sprintf("EXTRACT('year' FROM participant.created_date) = $%d", len(paramQuery)))
+		orWhere = append(orWhere, fmt.Sprintf("EXTRACT('year' FROM ugc.created_date) = $%d", len(paramQuery)))
 
-		queryGetTotalGameOnRoom += " AND " + strings.Join(orWhere, " AND ")
-		queryGetTotalGameOnTournament += " AND " + strings.Join(orWhere, " AND ")
+		where = append(where, strings.Join(orWhere, " AND "))
 	}
 
 	// CAFE CITY
 	if len(param.CafeCity) > 0 {
 		var orWhere []string
 		paramQuery = append(paramQuery, strings.ToLower(param.CafeCity))
-		orWhere = append(orWhere, fmt.Sprintf("LOWER(event.location_city) = $%d", len(paramQuery)))
+		orWhere = append(orWhere, fmt.Sprintf("LOWER(c.city) = $%d", len(paramQuery)))
 
-		queryGetTotalGameOnRoom += " AND " + strings.Join(orWhere, " AND ")
-		queryGetTotalGameOnTournament += " AND " + strings.Join(orWhere, " AND ")
+		where = append(orWhere, strings.Join(orWhere, " AND "))
 	}
-
-	queryGetTotalPlayedGame := `
-		WITH game_counts AS (
-			` + queryGetTotalGameOnRoom + `
-			UNION ALL
-			` + queryGetTotalGameOnTournament + `
-		)
-		SELECT COUNT(DISTINCT game_id) AS total_game_played, user_id
-		FROM game_counts
-		GROUP BY user_id, game_id
-	`
-
-	query += ` JOIN (` + queryGetTotalPlayedGame + `) AS total_games ON total_games.user_id = u.id 
-	GROUP BY u.id `
 
 	// Limit
 	paramQuery = append(paramQuery, param.Limit)
-	query += fmt.Sprintf(" LIMIT $%d ", len(paramQuery))
+	query += fmt.Sprintf(" WHERE %s  GROUP BY u.username, u.fullname, u.image_url LIMIT $%d ", strings.Join(where, " AND "), len(paramQuery))
 
 	rows, err := db.Query(ctx, query, paramQuery...)
 	if err != nil {
