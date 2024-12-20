@@ -20,6 +20,7 @@ type (
 		GameMasterCode     sql.NullString  `db:"game_master_code"`
 		GameMasterName     sql.NullString  `db:"game_master_name"`
 		GameMasterImgUrl   sql.NullString  `db:"game_master_img_url"`
+		GameId             int64           `db:"game_id"`
 		GameCode           string          `db:"game_code"`
 		GameName           string          `db:"game_name"`
 		GameImgUrl         string          `db:"game_img_url"`
@@ -236,6 +237,7 @@ func (c *Contract) GetRoomByCode(db *pgxpool.Pool, ctx context.Context, code str
 			a.admin_code AS game_master_code,
 			a.name AS game_master_name,
 			a.image_url AS game_master_img_url,
+			r.game_id,
 			g.game_code,
 			g.name AS game_name,
 			g.image_url AS game_img_url,
@@ -276,7 +278,7 @@ func (c *Contract) GetRoomByCode(db *pgxpool.Pool, ctx context.Context, code str
 
 	err = db.QueryRow(ctx, queryGetRoomGameDetail, code).Scan(
 		&data.GameMasterCode, &data.GameMasterName, &data.GameMasterImgUrl,
-		&data.GameCode, &data.GameName, &data.GameImgUrl,
+		&data.GameId, &data.GameCode, &data.GameName, &data.GameImgUrl,
 		&data.CafeCode, &data.CafeName, &data.CafeAddress,
 		&data.RoomId, &data.RoomCode, &data.RoomType, &data.Name, &data.Description, &data.SpecialInstruction, &data.Difficulty,
 		&data.StartDate, &data.EndDate, &data.StartTime, &data.EndTime,

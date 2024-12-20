@@ -611,6 +611,12 @@ func (h *Contract) SetWinnerTournamentAct(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	participants, err := m.GetAllParticipantByTournamentCode(h.DB, ctx, tournamentCode)
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		return
+	}
+
 	tournamentId := tournamentData.TournamentId
 	tournamentParticipantPoint := tournamentData.ParticipantVP
 
@@ -710,6 +716,10 @@ func (h *Contract) SetWinnerTournamentAct(w http.ResponseWriter, r *http.Request
 				return
 			}
 		}
+	}
+
+	for _, participant := range participants {
+		_ = m.AddUserGameCollections(h.DB, ctx, participant.UserId, tournamentData.GameId)
 	}
 
 	h.SendSuccess(w, nil, nil)
