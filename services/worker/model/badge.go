@@ -178,7 +178,7 @@ func (h *Contract) CheckBadges(ctx context.Context, badgeCode string) error {
 					return h.errHandler("model.CheckBadge", err, utils.ErrUnmarshallingBadgeRule)
 				}
 
-				totalGames, err := m.CountDifferentGamesByUserID(h.DB, ctx, userId)
+				totalGames, err := m.CountUserGameCollectionsByUserID(h.DB, ctx, userId)
 				if err != nil {
 					return h.errHandler("model.CheckBadge", err, utils.ErrGettingTotalInvoiceAmount)
 				}

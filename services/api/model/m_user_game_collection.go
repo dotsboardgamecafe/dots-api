@@ -92,6 +92,20 @@ func (c *Contract) GetUserGameCollections(db *pgxpool.Pool, ctx context.Context,
 	return list, param, nil
 }
 
+func (c *Contract) CountUserGameCollectionsByUserID(db *pgxpool.Pool, ctx context.Context, userId int64) (int, error) {
+	var (
+		err   error
+		count int
+	)
+
+	err = db.QueryRow(ctx, `SELECT COUNT(*) FROM users_game_collections WHERE user_id = $1`, userId).Scan(&count)
+	if err != nil {
+		return 0, c.errHandler("model.CountUserGameCollectionsByUserID", err, utils.ErrCountingUserGameCollection)
+	}
+
+	return count, nil
+}
+
 func (c *Contract) AddUserGameCollections(db *pgxpool.Pool, ctx context.Context, userId, gameId int64) error {
 	var (
 		err   error
