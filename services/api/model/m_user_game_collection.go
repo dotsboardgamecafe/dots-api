@@ -5,9 +5,12 @@ import (
 	"database/sql"
 	"dots-api/lib/utils"
 	"dots-api/services/api/request"
+	"errors"
 	"fmt"
 	"math"
+	"time"
 
+	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -18,6 +21,7 @@ type UserGameCollectionResp struct {
 	GameCode     sql.NullString `db:"game_code"`
 	GameName     sql.NullString `db:"game_name"`
 	GameImageUrl sql.NullString `db:"game_image_url"`
+	CreatedDate  time.Time      `db:"created_date"`
 }
 
 func (c *Contract) GetUserGameCollections(db *pgxpool.Pool, ctx context.Context, userCode string, param request.UserGameCollectionParam) ([]UserGameCollectionResp, request.UserGameCollectionParam, error) {
@@ -26,30 +30,20 @@ func (c *Contract) GetUserGameCollections(db *pgxpool.Pool, ctx context.Context,
 		list       []UserGameCollectionResp
 		paramQuery []interface{}
 		totalData  int
-		// where      []string
 
 		query = `
-		SELECT
-			u.id,
-			u.user_code,
-			g.id,
-			g.game_code AS game_code,
-			g."name" AS game_name,
-			g.image_url AS game_image_url
-		FROM games g
-		LEFT JOIN tournaments t ON g.id = t.game_id
-		LEFT JOIN tournament_participants tp ON tp.tournament_id = t.id AND tp.status = 'active'
-		left JOIN rooms r ON g.id = r.game_id
-		left JOIN rooms_participants rp ON rp.room_id = r.id AND rp.status = 'active'
-		LEFT JOIN users u ON rp.user_id = u.id OR tp.user_id = u.id
-		WHERE u.user_code = $1
-		GROUP BY
-			u.id,
-			u.user_code,
-			g.id,
-			g.game_code,
-			g."name",
-			g.image_url 
+			SELECT
+				u.id,
+				u.user_code,
+				g.id,
+				g.game_code AS game_code,
+				g."name" AS game_name,
+				g.image_url AS game_image_url,
+				ugc.created_date
+			FROM games g
+			LEFT JOIN users_game_collections ugc ON ugc.game_id = g.id
+			LEFT JOIN users u ON ugc.user_id = u.id
+			WHERE u.user_code = $1
 		`
 	)
 
@@ -72,7 +66,7 @@ func (c *Contract) GetUserGameCollections(db *pgxpool.Pool, ctx context.Context,
 	}
 	// Limit and Offset
 	param.Offset = (param.Page - 1) * param.Limit
-	query += " ORDER BY " + param.Order + " " + param.Sort + " "
+	query += " ORDER BY " + param.SortKey + " " + param.Sort + " "
 
 	paramQuery = append(paramQuery, param.Offset)
 	query += fmt.Sprintf("offset $%d ", len(paramQuery))
@@ -88,7 +82,7 @@ func (c *Contract) GetUserGameCollections(db *pgxpool.Pool, ctx context.Context,
 	defer rows.Close()
 	for rows.Next() {
 		var data UserGameCollectionResp
-		err = rows.Scan(&data.UserId, &data.UserCode, &data.GameId, &data.GameCode, &data.GameName, &data.GameImageUrl)
+		err = rows.Scan(&data.UserId, &data.UserCode, &data.GameId, &data.GameCode, &data.GameName, &data.GameImageUrl, &data.CreatedDate)
 		if err != nil {
 			return list, param, c.errHandler("model.GetUserGameCollections", err, utils.ErrScanningListUserGameCollection)
 		}
@@ -96,4 +90,29 @@ func (c *Contract) GetUserGameCollections(db *pgxpool.Pool, ctx context.Context,
 	}
 
 	return list, param, nil
+}
+
+func (c *Contract) AddUserGameCollections(db *pgxpool.Pool, ctx context.Context, userId, gameId int64) error {
+	var (
+		err   error
+		query = `
+			INSERT INTO 
+				users_game_collections(user_id, game_id, created_date)
+				VALUES ($1, $2, CURRENT_TIMESTAMP)
+		`
+	)
+
+	_, err = db.Exec(ctx, query, userId, gameId)
+
+	if err != nil {
+		if pgErr, ok := err.(*pgconn.PgError); ok {
+			if pgErr.Code == "23505" {
+				return c.errHandler("model.AddUserGameCollection", errors.New(utils.ErrUserGameCollectionExists), utils.ErrUserGameCollectionExists)
+			}
+		}
+
+		return c.errHandler("model.AddUserGameCollection", err, utils.ErrAddingUserGameCollection)
+	}
+
+	return nil
 }

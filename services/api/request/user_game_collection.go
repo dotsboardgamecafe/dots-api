@@ -14,8 +14,12 @@ type (
 		Offset  int    `json:"offset"`
 		Count   int    `json:"count"`
 		Sort    string `json:"sort"`
-		Order   string `json:"order"`
+		SortKey string `json:"sort_key"`
 		MaxPage int    `json:"max_page"`
+	}
+
+	UserGameCollectionAddPayload struct {
+		GameCode string `json:"game_code" validate:"required"`
 	}
 )
 
@@ -24,7 +28,7 @@ func (param *UserGameCollectionParam) ParseUserGameCollection(values url.Values)
 	param.Page = 1
 	param.Limit = 10
 	param.Sort = "desc"
-	param.Order = "g.name"
+	param.SortKey = "ugc.created_date"
 	param.Offset = 0
 
 	if page, ok := values["page"]; ok && len(page) > 0 {
@@ -37,10 +41,13 @@ func (param *UserGameCollectionParam) ParseUserGameCollection(values url.Values)
 		param.Sort = "asc"
 	}
 
-	if order, ok := values["order"]; ok && len(order) > 0 {
+	if sortKey, ok := values["sort_key"]; ok && len(sortKey) > 0 {
 		arrStr := new(array.ArrStr)
-		if exist, _ := arrStr.InArray(order[0], []string{"game_id"}); exist {
-			param.Order = order[0]
+		if exist, _ := arrStr.InArray(sortKey[0], []string{"game_id", "name", "created_date"}); exist {
+			if sortKey[0] == "created_date" {
+				sortKey[0] = "ugc.created_date"
+			}
+			param.SortKey = sortKey[0]
 		}
 	}
 

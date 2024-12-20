@@ -257,6 +257,10 @@ var (
 	ErrGettingListUserGameCollection  = "Error getting list user game collection"
 	ErrScanningListUserGameCollection = "Error scanning list user game collection"
 	ErrCountingListUserGameCollection = "Error counting list user game collection"
+	ErrGettingUserGameCollection      = "Error getting user game collection"
+	ErrAddingUserGameCollection       = "Error adding user game collection"
+	ErrUserGameCollectionExists       = "Error user game collection already exists"
+	ErrCountingUserGameCollection     = "Error counting user game collection"
 
 	//Error for User Game History
 	ErrGettingListUserGameHistory  = "Error getting list user game history"

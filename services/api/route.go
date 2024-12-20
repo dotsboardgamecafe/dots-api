@@ -72,6 +72,7 @@ func AppSubsRoute(r chi.Router, app *bootstrap.App) {
 
 		//User game collection
 		r.With(app.VerifyAccessRoute).Get("/{code}/game-collection", nrWrap(h.GetUserGameCollectionAct, app.NewRelic))
+		r.With(app.VerifyAccessRoute).Post("/{code}/game-collection", nrWrap(h.AddUserGameCollectionAct, app.NewRelic))
 
 		//User history game
 		r.With(app.VerifyAccessRoute).Get("/{code}/history-games", nrWrap(h.GetUserGameHistoryAct, app.NewRelic))
