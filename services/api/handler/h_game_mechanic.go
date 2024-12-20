@@ -27,7 +27,7 @@ func (h *Contract) GetGameMechanicList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data, err := m.ListOfGameMechanics(h.DB, ctx, param)
+	data, param, err := m.ListOfGameMechanics(h.DB, ctx, param)
 	if err != nil {
 		h.SendBadRequest(w, err.Error())
 		return

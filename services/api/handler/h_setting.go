@@ -28,7 +28,7 @@ func (h *Contract) GetSettingListAct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data, err := m.GetSettingList(h.DB, ctx, param)
+	data, param, err := m.GetSettingList(h.DB, ctx, param)
 	if err != nil {
 		h.SendBadRequest(w, err.Error())
 		return
