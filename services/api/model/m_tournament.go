@@ -17,6 +17,7 @@ import (
 type (
 	TournamentsEnt struct {
 		TournamentId    int64           `db:"tournament_id"`
+		GameId          int64           `db:"game_id"`
 		GameCode        string          `db:"game_code"`
 		GameName        string          `db:"game_name"`
 		GameType        string          `db:"game_type"`
@@ -202,7 +203,7 @@ func (c *Contract) GetTournamentByCode(db *pgxpool.Pool, ctx context.Context, co
 		data  TournamentsEnt
 		query = `
 		SELECT 
-		games.game_code, games.game_type, games.name, games.image_url, 
+		tournaments.game_id, games.game_code, games.game_type, games.name, games.image_url, 
 		cafes.cafe_code, cafes.name as cafe_name, cafes.address as cafe_address, 
 		tournaments.id as tournament_id,tournaments.tournament_code, tournaments.image_url, tournaments.name, tournaments.prizes_img_url, 
 		tournaments.tournament_rules, tournaments.level, tournaments.start_date, tournaments.end_date, tournaments.booking_price, 
@@ -226,7 +227,7 @@ func (c *Contract) GetTournamentByCode(db *pgxpool.Pool, ctx context.Context, co
 	)
 
 	err = db.QueryRow(ctx, query, code).Scan(
-		&data.GameCode, &data.GameType, &data.GameName, &data.ImageUrl,
+		&data.GameId, &data.GameCode, &data.GameType, &data.GameName, &data.ImageUrl,
 		&data.CafeCode, &data.CafeName, &data.CafeAddress,
 		&data.TournamentId, &data.TournamentCode, &data.ImageUrl, &data.Name, &data.PrizesImgUrl,
 		&data.TournamentRules, &data.Level, &data.StartDate, &data.EndDate, &data.BookingPrice,
