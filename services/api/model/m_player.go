@@ -133,9 +133,13 @@ func (c *Contract) GetUniqueGame(db *pgxpool.Pool, ctx context.Context, param re
 		where = append(where, strings.Join(orWhere, " AND "))
 	}
 
+	if len(where) > 0 {
+		query += " WHERE " + strings.Join(where, " AND ")
+	}
+
 	// Limit
 	paramQuery = append(paramQuery, param.Limit)
-	query += fmt.Sprintf(" WHERE %s GROUP BY u.username, u.fullname, u.image_url LIMIT $%d ", strings.Join(where, " AND "), len(paramQuery))
+	query += fmt.Sprintf(" GROUP BY u.username, u.fullname, u.image_url LIMIT $%d ", len(paramQuery))
 
 	rows, err := db.Query(ctx, query, paramQuery...)
 	if err != nil {
