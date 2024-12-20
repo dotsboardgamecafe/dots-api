@@ -116,6 +116,7 @@ func AppSubsRoute(r chi.Router, app *bootstrap.App) {
 		r.With(app.VerifyAccessRoute).Get("/{code}", nrWrap(h.GetGameDetailAct, app.NewRelic))
 		r.With(app.VerifyAccessRoute).Put("/{code}", nrWrap(h.UpdateGameAct, app.NewRelic))
 		r.With(app.VerifyAccessRoute).Delete("/{code}", nrWrap(h.DeleteGameAct, app.NewRelic))
+		r.With(app.VerifyAccessRoute).Get("/{code}/qrcode", nrWrap(h.GetGameQRCodeAct, app.NewRelic))
 	})
 
 	// Master Admin

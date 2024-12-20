@@ -23,7 +23,7 @@ type GameRes struct {
 	GameRelated        []GameRelatedRes       `json:"game_related"`
 	GameRooms          []GameAvailableRoomRes `json:"game_rooms"`
 	GameMasters        AdminRes               `json:"game_masters"`
-	IsPopular          bool                   `json:"is_popular"`
+	NumberOfPopularity int64                  `json:"number_of_popularity"`
 }
 
 type GameDetailRes struct {
@@ -58,6 +58,10 @@ type UsersHavePlayedGameHistoryRes struct {
 	UserCode  string `json:"user_code"`
 	UserName  string `json:"username"`
 	UserImage string `json:"user_image"`
+}
+
+type GameQRCodeRes struct {
+	Source string `json:"qrcode"`
 }
 
 func BuildCollectionURLResp(data string) []string {

@@ -107,6 +107,7 @@ var (
 	ErrScanningListGame    = "Error scanning list game"
 	ErrAddingGame          = "Error adding game"
 	ErrGettingGameByCode   = "Error getting game by code"
+	ErrGettingGameQrCode   = "Error getting game qr code image"
 	ErrUpdatingGame        = "Error updating game by code"
 	ErrCheckExistGameUsed  = "Error on checking game is used by other room or tournament"
 	ErrForbiddenDeleteGame = "Game cannot be deleted, because is used in another room or tournament"
