@@ -13,7 +13,7 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
-func (c *Contract) ListOfGameMechanics(db *pgxpool.Pool, ctx context.Context, param request.GameMechanicParam) ([]SettingEnt, error) {
+func (c *Contract) ListOfGameMechanics(db *pgxpool.Pool, ctx context.Context, param request.GameMechanicParam) ([]SettingEnt, request.GameMechanicParam, error) {
 	var (
 		err        error
 		list       []SettingEnt
@@ -21,9 +21,33 @@ func (c *Contract) ListOfGameMechanics(db *pgxpool.Pool, ctx context.Context, pa
 		paramQuery []interface{}
 		totalData  int
 
-		query = `SELECT id, setting_code, content_value, created_date FROM settings WHERE set_group = 'game_mechanic'`
+		query = `
+		with
+			game_counts as (
+				select game_id, COUNT(*) as play_count
+				from
+					(
+						select game_id from
+						rooms r union all
+						select game_id from tournaments t
+					) combined_plays
+				group by game_id
+			)
+		select
+			s.id, setting_code, content_value, created_date,
+			COALESCE(SUM(gc.play_count), 0) as number_of_played
+		from
+			settings s
+		left join
+			games_categories gcs
+			on gcs.category_name = s.content_value 
+		left join
+			game_counts gc
+			on gc.game_id = gcs.game_id
+		`
 	)
 
+	where = append(where, "set_group = 'game_mechanic'")
 	// Populate Search
 	if len(param.Keyword) > 0 {
 		var orWhere []string
@@ -39,14 +63,15 @@ func (c *Contract) ListOfGameMechanics(db *pgxpool.Pool, ctx context.Context, pa
 	}
 
 	{
-		newQcount := `SELECT COUNT(1) FROM ( ` + query + ` ) AS data`
+		newQcount := `SELECT COUNT(1) FROM ( ` + query + ` group by s.id, setting_code, content_value, created_date) AS data`
 		err := db.QueryRow(ctx, newQcount, paramQuery...).Scan(&totalData)
 		if err != nil {
-			return list, c.errHandler("model.ListOfGameMechanics", err, utils.ErrCountingListSetting)
+			return list, param, c.errHandler("model.ListOfGameMechanics", err, utils.ErrCountingListSetting)
 		}
 		param.Count = totalData
 	}
 
+	query += " group by s.id, setting_code, content_value, created_date"
 	// Limit and Offset
 	if param.Page > 0 && param.Limit > 0 {
 		// Select Max Page
@@ -55,7 +80,7 @@ func (c *Contract) ListOfGameMechanics(db *pgxpool.Pool, ctx context.Context, pa
 		}
 
 		param.Offset = (param.Page - 1) * param.Limit
-		query += " ORDER BY id " + param.Sort + " "
+		query += " ORDER BY number_of_played " + param.Sort + " "
 
 		paramQuery = append(paramQuery, param.Offset)
 		query += fmt.Sprintf("offset $%d ", len(paramQuery))
@@ -66,20 +91,20 @@ func (c *Contract) ListOfGameMechanics(db *pgxpool.Pool, ctx context.Context, pa
 
 	rows, err := db.Query(ctx, query, paramQuery...)
 	if err != nil {
-		return list, c.errHandler("model.ListOfGameMechanics", err, utils.ErrGettingListSetting)
+		return list, param, c.errHandler("model.ListOfGameMechanics", err, utils.ErrGettingListSetting)
 	}
 
 	defer rows.Close()
 	for rows.Next() {
 		var data SettingEnt
-		err = rows.Scan(&data.Id, &data.SettingCode, &data.ContentValue, &data.CreatedDate)
+		err = rows.Scan(&data.Id, &data.SettingCode, &data.ContentValue, &data.CreatedDate, &data.NumberOfPlayed)
 		if err != nil {
-			return list, c.errHandler("model.ListOfGameMechanics", err, utils.ErrScanningListSetting)
+			return list, param, c.errHandler("model.ListOfGameMechanics", err, utils.ErrScanningListSetting)
 		}
 		list = append(list, data)
 	}
 
-	return list, nil
+	return list, param, nil
 }
 
 func (c *Contract) UpdateGameMechanic(db *pgxpool.Pool, ctx context.Context, settingCode string, mechanicKey string, mechanicName string, prevMechanicName string) error {

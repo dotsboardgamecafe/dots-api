@@ -72,7 +72,7 @@ func (h *Contract) AddCafeAct(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//validate province
-	provinces, err := m.GetSettingList(h.DB, ctx, request.SettingParam{
+	provinces, _, err := m.GetSettingList(h.DB, ctx, request.SettingParam{
 		SetGroup: "province",
 	})
 	if err != nil {
@@ -91,7 +91,7 @@ func (h *Contract) AddCafeAct(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//validate city
-	cities, err := m.GetSettingList(h.DB, ctx, request.SettingParam{
+	cities, _, err := m.GetSettingList(h.DB, ctx, request.SettingParam{
 		SetGroup: "city",
 	})
 	if err != nil {

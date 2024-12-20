@@ -11,25 +11,28 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/sirupsen/logrus"
 )
 
 type SettingEnt struct {
-	Id           int64        `db:"id"`
-	SettingCode  string       `db:"setting_code"`
-	SetGroup     string       `db:"set_group"`
-	SetKey       string       `db:"set_key"`
-	SetLabel     string       `db:"set_label"`
-	SetOrder     int          `db:"set_order"`
-	ContentType  string       `db:"content_type"`
-	ContentValue string       `db:"content_value"`
-	IsActive     bool         `db:"is_active"`
-	CreatedDate  time.Time    `db:"created_date"`
-	UpdatedDate  sql.NullTime `db:"updated_date"`
+	Id           int64  `db:"id"`
+	SettingCode  string `db:"setting_code"`
+	SetGroup     string `db:"set_group"`
+	SetKey       string `db:"set_key"`
+	SetLabel     string `db:"set_label"`
+	SetOrder     int    `db:"set_order"`
+	ContentType  string `db:"content_type"`
+	ContentValue string `db:"content_value"`
+	// initiated to order most of the game mechanic
+	NumberOfPlayed int          `db:"number_of_played"`
+	IsActive       bool         `db:"is_active"`
+	CreatedDate    time.Time    `db:"created_date"`
+	UpdatedDate    sql.NullTime `db:"updated_date"`
 }
 
 var setType = []string{"json_arr", "json_obj", "bool", "string"}
 
-func (c *Contract) GetSettingList(db *pgxpool.Pool, ctx context.Context, param request.SettingParam) ([]SettingEnt, error) {
+func (c *Contract) GetSettingList(db *pgxpool.Pool, ctx context.Context, param request.SettingParam) ([]SettingEnt, request.SettingParam, error) {
 	var (
 		err        error
 		list       []SettingEnt
@@ -72,9 +75,10 @@ func (c *Contract) GetSettingList(db *pgxpool.Pool, ctx context.Context, param r
 		newQcount := `SELECT COUNT(*) FROM ( ` + query + ` ) AS data`
 		err := db.QueryRow(ctx, newQcount, paramQuery...).Scan(&totalData)
 		if err != nil {
-			return list, c.errHandler("model.GetSettingList", err, utils.ErrCountingListSetting)
+			return list, param, c.errHandler("model.GetSettingList", err, utils.ErrCountingListSetting)
 		}
 		param.Count = totalData
+		logrus.Println("Count: ", totalData)
 	}
 
 	// Limit and Offset
@@ -96,7 +100,7 @@ func (c *Contract) GetSettingList(db *pgxpool.Pool, ctx context.Context, param r
 
 	rows, err := db.Query(ctx, query, paramQuery...)
 	if err != nil {
-		return list, c.errHandler("model.GetSettingList", err, utils.ErrGettingListSetting)
+		return list, param, c.errHandler("model.GetSettingList", err, utils.ErrGettingListSetting)
 	}
 
 	defer rows.Close()
@@ -104,11 +108,11 @@ func (c *Contract) GetSettingList(db *pgxpool.Pool, ctx context.Context, param r
 		var data SettingEnt
 		err = rows.Scan(&data.Id, &data.SettingCode, &data.SetGroup, &data.SetKey, &data.SetLabel, &data.SetOrder, &data.ContentType, &data.ContentValue, &data.IsActive)
 		if err != nil {
-			return list, c.errHandler("model.GetSettingList", err, utils.ErrScanningListSetting)
+			return list, param, c.errHandler("model.GetSettingList", err, utils.ErrScanningListSetting)
 		}
 		list = append(list, data)
 	}
-	return list, nil
+	return list, param, nil
 }
 
 func (c *Contract) GetSettinglistbyGroup(db *pgxpool.Pool, ctx context.Context, setGroup string) ([]SettingEnt, error) {
