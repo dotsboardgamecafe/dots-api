@@ -33,10 +33,11 @@ type (
 		Offset             int      `json:"offset"`
 		Count              int      `json:"count"`
 		Sort               string   `json:"sort"`
-		Order              string   `json:"order"`
+		SortKey            string   `json:"sort_key"`
 		Keyword            string   `json:"keyword"`
 		Status             string   `json:"status"`
 		Level              float64  `json:"level"`
+		NumberOfPlayers    int      `json:"number_of_players"`
 		MinimalParticipant int      `json:"minimal_participant"`
 		MaximumParticipant int      `json:"maximum_participant"`
 		MinDuration        int      `json:"min_duration"`
@@ -60,7 +61,7 @@ func (param *GameParam) ParseGame(values url.Values) error {
 	param.MinimalParticipant = 0
 	param.MaximumParticipant = 0
 	param.Sort = "desc"
-	param.Order = "games.created_date"
+	param.SortKey = "g.created_date"
 	param.Status = ""
 	param.Difficulty = ""
 	param.Offset = 0
@@ -81,16 +82,19 @@ func (param *GameParam) ParseGame(values url.Values) error {
 		param.Sort = "asc"
 	}
 
-	if order, ok := values["order"]; ok && len(order) > 0 {
+	if sortKey, ok := values["sort_key"]; ok && len(sortKey) > 0 {
 		arrStr := new(array.ArrStr)
-		if exist, _ := arrStr.InArray(order[0], []string{"games.id", "games.name", "games.description", "games.status", "cafes.created_date"}); exist {
-			param.Order = order[0]
+		if exist, _ := arrStr.InArray(sortKey[0], []string{"name", "level", "created_date", "number_of_popularity"}); exist {
+			if sortKey[0] != "number_of_popularity" {
+				sortKey[0] = "g." + sortKey[0]
+			}
+			param.SortKey = sortKey[0]
 		}
 	}
 
 	if status, ok := values["status"]; ok && len(status) > 0 {
 		if !utils.Contains(utils.StatusGame, status[0]) {
-			return fmt.Errorf("%s", "wrong status value for game(active|inactive")
+			return fmt.Errorf("%s", "wrong status value for game(active|inactive)")
 		}
 		param.Status = status[0]
 	}
@@ -134,6 +138,12 @@ func (param *GameParam) ParseGame(values url.Values) error {
 	if maxDuration, ok := values["max_duration"]; ok && len(maxDuration) > 0 {
 		if l, err := strconv.Atoi(maxDuration[0]); err == nil {
 			param.MaxDuration = l
+		}
+	}
+
+	if NumberOfPlayers, ok := values["number_of_players"]; ok && len(NumberOfPlayers) > 0 {
+		if l, err := strconv.Atoi(NumberOfPlayers[0]); err == nil {
+			param.NumberOfPlayers = l
 		}
 	}
 

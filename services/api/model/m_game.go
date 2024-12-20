@@ -3,10 +3,12 @@ package model
 import (
 	"context"
 	"database/sql"
+	"dots-api/lib/qr"
 	"dots-api/lib/utils"
 	"dots-api/services/api/request"
 	"fmt"
 	"math"
+	"os"
 	"strings"
 	"time"
 
@@ -58,6 +60,7 @@ type (
 		GameCharacteristic sql.NullString `db:"game_characteristics"`
 		GameRelated        sql.NullString `db:"game_related_list"`
 		GameRoomAvailables sql.NullString `db:"room_available_list"`
+		NumberOfPopularity int64          `db:"number_of_popularity"`
 	}
 )
 
@@ -69,24 +72,52 @@ func (c *Contract) GetGameList(db *pgxpool.Pool, ctx context.Context, param requ
 		paramQuery []interface{}
 		totalData  int
 
-		query = `SELECT 
-		cafes.cafe_code, cafes.name as cafe_name, 
-		games.game_code, games.game_type, games.name, games.image_url, 
-		games.collection_url, games.description, games.status,
-		games.duration, games.minimal_participant, games.maximum_participant,
-		games.difficulty, games.level, admins.admin_code, 
-		games_categories.categories,
-		cafes.city AS location
-		FROM games 
-		LEFT JOIN cafes ON cafes.id = games.cafe_id
-		LEFT JOIN admins ON admins.id = games.admin_id 
-		LEFT JOIN (
-			SELECT game_id, JSON_AGG(JSON_BUILD_OBJECT(
-			'category_name', category_name 
-			)) AS categories 
-			FROM games_categories
+		query = `WITH games_popularity AS (
+			SELECT game_id, COUNT(DISTINCT user_id) as number_of_popularity
+			FROM (
+				SELECT DISTINCT r.game_id, rp.user_id
+				FROM rooms r 
+				INNER JOIN rooms_participants rp ON r.id = rp.room_id AND rp.status = 'active'
+				UNION
+				SELECT DISTINCT t.game_id, tp.user_id
+				FROM tournaments t
+				INNER JOIN tournament_participants tp ON t.id = tp.tournament_id AND tp.status = 'active'
+			) unique_participants
 			GROUP BY game_id
-		) AS games_categories ON games_categories.game_id = games.id`
+		)
+		SELECT 
+			g.id,
+			c.cafe_code, 
+			c.name as cafe_name, 
+			g.game_code, 
+			g.game_type, 
+			g.name, 
+			g.image_url, 
+			g.collection_url, 
+			g.description, 
+			g.status, 
+			g.duration, 
+			g.minimal_participant, 
+			g.maximum_participant, 
+			g.difficulty, 
+			g.level, 
+			a.admin_code, 
+			COALESCE(gc.categories, '[]'::json) as categories,
+			c.city AS location, 
+			COALESCE(gp.number_of_popularity, 0) AS number_of_popularity
+		FROM games g
+		LEFT JOIN games_popularity gp ON gp.game_id = g.id
+		LEFT JOIN cafes c ON c.id = g.cafe_id
+		LEFT JOIN admins a ON a.id = g.admin_id 
+		LEFT JOIN LATERAL (
+			SELECT 
+				game_id, 
+				JSON_AGG(JSON_BUILD_OBJECT('category_name', category_name)) AS categories 
+			FROM games_categories 
+			WHERE game_id = g.id 
+			GROUP BY game_id
+		) gc ON true
+		`
 	)
 
 	// Populate Search
@@ -94,7 +125,7 @@ func (c *Contract) GetGameList(db *pgxpool.Pool, ctx context.Context, param requ
 		var orWhere []string
 		paramQuery = append(paramQuery, "%"+param.Keyword+"%")
 		// orWhere = append(orWhere, fmt.Sprintf("cafes.name iLIKE $%d", len(paramQuery)))
-		orWhere = append(orWhere, fmt.Sprintf("games.name iLIKE $%d", len(paramQuery)))
+		orWhere = append(orWhere, fmt.Sprintf("g.name iLIKE $%d", len(paramQuery)))
 		// orWhere = append(orWhere, fmt.Sprintf("games.game_type iLIKE $%d", len(paramQuery)))
 		// orWhere = append(orWhere, fmt.Sprintf("games.description iLIKE $%d", len(paramQuery)))
 		where = append(where, "("+strings.Join(orWhere, " OR ")+")")
@@ -102,25 +133,25 @@ func (c *Contract) GetGameList(db *pgxpool.Pool, ctx context.Context, param requ
 	if len(param.CafeCode) > 0 {
 		var orWhere []string
 		paramQuery = append(paramQuery, param.CafeCode)
-		orWhere = append(orWhere, fmt.Sprintf("cafes.cafe_code = $%d", len(paramQuery)))
+		orWhere = append(orWhere, fmt.Sprintf("c.cafe_code = $%d", len(paramQuery)))
 		where = append(where, strings.Join(orWhere, " AND "))
 	}
 	if len(param.Status) > 0 {
 		var orWhere []string
 		paramQuery = append(paramQuery, param.Status)
-		orWhere = append(orWhere, fmt.Sprintf("games.status = $%d", len(paramQuery)))
+		orWhere = append(orWhere, fmt.Sprintf("g.status = $%d", len(paramQuery)))
 		where = append(where, strings.Join(orWhere, " AND "))
 	}
 	if len(param.GameType) > 0 {
 		var orWhere []string
 		paramQuery = append(paramQuery, param.GameType)
-		orWhere = append(orWhere, fmt.Sprintf("games.game_type = ANY($%d)", len(paramQuery)))
+		orWhere = append(orWhere, fmt.Sprintf("g.game_type = ANY($%d)", len(paramQuery)))
 		where = append(where, strings.Join(orWhere, " AND "))
 	}
 	if len(param.Difficulty) > 0 {
 		var orWhere []string
 		paramQuery = append(paramQuery, param.Difficulty)
-		orWhere = append(orWhere, fmt.Sprintf("games.difficulty = $%d", len(paramQuery)))
+		orWhere = append(orWhere, fmt.Sprintf("g.difficulty = $%d", len(paramQuery)))
 		where = append(where, strings.Join(orWhere, " AND "))
 	}
 	if len(param.GameCategoryName) > 0 {
@@ -128,7 +159,7 @@ func (c *Contract) GetGameList(db *pgxpool.Pool, ctx context.Context, param requ
 		paramQuery = append(paramQuery, param.GameCategoryName)
 		orWhere = append(orWhere, fmt.Sprintf(`EXISTS (
 			SELECT 1
-			FROM json_array_elements(games_categories.categories) AS category
+			FROM json_array_elements(gc.categories) AS category
 			WHERE lower(category->>'category_name') = ANY($%d)
 		)`, len(paramQuery)))
 		where = append(where, strings.Join(orWhere, " AND "))
@@ -136,49 +167,38 @@ func (c *Contract) GetGameList(db *pgxpool.Pool, ctx context.Context, param requ
 	if len(param.Location) > 0 {
 		var orWhere []string
 		paramQuery = append(paramQuery, param.Location)
-		orWhere = append(orWhere, fmt.Sprintf("cafes.city = ANY($%d)", len(paramQuery)))
+		orWhere = append(orWhere, fmt.Sprintf("c.city = ANY($%d)", len(paramQuery)))
 		where = append(where, strings.Join(orWhere, " AND "))
 	}
 
 	if param.Level > 0 {
 		var orWhere []string
 		paramQuery = append(paramQuery, param.Level)
-		orWhere = append(orWhere, fmt.Sprintf("games.level = $%d ", len(paramQuery)))
+		orWhere = append(orWhere, fmt.Sprintf("g.level = $%d ", len(paramQuery)))
 		where = append(where, strings.Join(orWhere, " AND "))
 	}
 
 	if param.MinDuration > 0 {
 		var orWhere []string
 		paramQuery = append(paramQuery, param.MinDuration)
-		orWhere = append(orWhere, fmt.Sprintf("games.duration >= $%d ", len(paramQuery)))
+		orWhere = append(orWhere, fmt.Sprintf("g.duration >= $%d ", len(paramQuery)))
 		where = append(where, strings.Join(orWhere, " AND "))
 	}
 
 	if param.MaxDuration > 0 {
 		var orWhere []string
 		paramQuery = append(paramQuery, param.MaxDuration)
-		orWhere = append(orWhere, fmt.Sprintf("games.duration <= $%d ", len(paramQuery)))
+		orWhere = append(orWhere, fmt.Sprintf("g.duration <= $%d ", len(paramQuery)))
 		where = append(where, strings.Join(orWhere, " AND "))
 	}
 
-	if param.MinimalParticipant > 0 || param.MaximumParticipant > 0 {
-		if param.MinimalParticipant > 0 && param.MaximumParticipant > 0 {
-			paramQuery = append(paramQuery, param.MinimalParticipant)
-			paramQuery = append(paramQuery, param.MaximumParticipant)
-			where = append(where, fmt.Sprintf(
-				"(games.minimal_participant <= $%d AND games.maximum_participant BETWEEN $%d AND $%d)",
-				len(paramQuery)-1, len(paramQuery)-1, len(paramQuery)))
-		} else if param.MinimalParticipant > 0 {
-			paramQuery = append(paramQuery, param.MinimalParticipant)
-			where = append(where, fmt.Sprintf("games.minimal_participant >= $%d", len(paramQuery)))
-		} else if param.MaximumParticipant > 0 {
-			paramQuery = append(paramQuery, param.MaximumParticipant)
-			where = append(where, fmt.Sprintf("games.maximum_participant <= $%d", len(paramQuery)))
-		}
+	if param.NumberOfPlayers > 0 {
+		paramQuery = append(paramQuery, param.NumberOfPlayers)
+		where = append(where, fmt.Sprintf("$%[1]d >= g.minimal_participant AND g.maximum_participant >= $%[1]d", len(paramQuery)))
 	}
 
 	// Handling Soft Delete
-	where = append(where, "games.deleted_date IS NULL")
+	where = append(where, "g.deleted_date IS NULL")
 
 	// Append All Where Conditions
 	if len(where) > 0 {
@@ -203,7 +223,7 @@ func (c *Contract) GetGameList(db *pgxpool.Pool, ctx context.Context, param requ
 
 	// Limit and Offset
 	param.Offset = (param.Page - 1) * param.Limit
-	query += " ORDER BY " + param.Order + " " + param.Sort + " "
+	query += " ORDER BY " + param.SortKey + " " + param.Sort + " "
 
 	paramQuery = append(paramQuery, param.Offset)
 	query += fmt.Sprintf("offset $%d ", len(paramQuery))
@@ -219,7 +239,7 @@ func (c *Contract) GetGameList(db *pgxpool.Pool, ctx context.Context, param requ
 	defer rows.Close()
 	for rows.Next() {
 		var data GameResp
-		err = rows.Scan(&data.CafeCode, &data.CafeName, &data.GameCode, &data.GameType, &data.Name, &data.ImageUrl, &data.CollectionUrl, &data.Description, &data.Status, &data.Duration, &data.MinimalParticipant, &data.MaximumParticipant, &data.Difficulty, &data.Level, &data.AdminCode, &data.GameCategories, &data.Location)
+		err = rows.Scan(&data.Id, &data.CafeCode, &data.CafeName, &data.GameCode, &data.GameType, &data.Name, &data.ImageUrl, &data.CollectionUrl, &data.Description, &data.Status, &data.Duration, &data.MinimalParticipant, &data.MaximumParticipant, &data.Difficulty, &data.Level, &data.AdminCode, &data.GameCategories, &data.Location, &data.NumberOfPopularity)
 		if err != nil {
 			return list, param, c.errHandler("model.GetGameList", err, utils.ErrScanningListCafe)
 		}
@@ -232,69 +252,103 @@ func (c *Contract) GetGameByCode(db *pgxpool.Pool, ctx context.Context, code str
 	var (
 		err  error
 		data GameResp
-		sql  = `SELECT 
-		games.id, cafes.cafe_code, cafes.name as cafe_name, cafes.address as cafe_address,
-		games.game_code, games.game_type, games.name, games.image_url, 
-		games.collection_url, games.description, games.status,
-		games.duration, games.minimal_participant, games.maximum_participant,
-		games.difficulty, games.level, admins.admin_code,  
-		games_categories.categories,
-		games_related.game_related_list,
-		game_room_available.room_available_list,
-		cafes.city AS location
+		sql  = `WITH games_popularity AS (
+			SELECT game_id, COUNT(DISTINCT user_id) as number_of_popularity
+			FROM (
+				SELECT DISTINCT r.game_id, rp.user_id
+				FROM rooms r 
+				INNER JOIN rooms_participants rp ON r.id = rp.room_id AND rp.status = 'active'
+				UNION
+				SELECT DISTINCT t.game_id, tp.user_id
+				FROM tournaments t
+				INNER JOIN tournament_participants tp ON t.id = tp.tournament_id AND tp.status = 'active'
+			) unique_participants
+			GROUP BY game_id
+		)
+		SELECT 
+			games.id, cafes.cafe_code, cafes.name as cafe_name, cafes.address as cafe_address,
+			games.game_code, games.game_type, games.name, games.image_url, 
+			games.collection_url, games.description, games.status, COALESCE(gp.number_of_popularity, 0),
+			games.duration, games.minimal_participant, games.maximum_participant,
+			games.difficulty, games.level, admins.admin_code,  
+			games_categories.categories,
+			games_related.game_related_list,
+			game_room_available.room_available_list,
+			cafes.city AS location
 		FROM games 
+		LEFT JOIN games_popularity gp ON gp.game_id = games.id
 		LEFT JOIN cafes ON cafes.id = games.cafe_id
 		LEFT JOIN admins ON admins.id = games.admin_id 
 		LEFT JOIN (
 			SELECT game_id, JSON_AGG(JSON_BUILD_OBJECT(
-			'category_name', category_name 
+				'category_name', category_name 
 			)) AS categories 
 			FROM games_categories
 			GROUP BY game_id
 		) AS games_categories ON games_categories.game_id = games.id
 		LEFT JOIN (
-			SELECT 
-				g1.id,
-				(SELECT JSON_AGG(JSON_BUILD_OBJECT(
-				'game_id', g2.id,
-				'name', g2.name,
-				'game_code', g2.game_code,
-				'game_type', g2.game_type,
-				'difficulty', g2.difficulty,
-				'image_url', g2.image_url,
-				'minimal_participant', g2.minimal_participant,
-				'maximum_participant', g2.maximum_participant,
-				'duration', g2.duration,
-				'location', c2.city
-				)) AS game_related_list
-				FROM games AS g2 
+			SELECT g1.id,
+			(
+				SELECT JSON_AGG(JSON_BUILD_OBJECT(
+					'game_id', g2.id,
+					'name', g2.name,
+					'game_code', g2.game_code,
+					'game_type', g2.game_type,
+					'level', g2.level,
+					'difficulty', g2.difficulty,
+					'image_url', g2.image_url,
+					'minimal_participant', g2.minimal_participant,
+					'maximum_participant', g2.maximum_participant,
+					'duration', g2.duration,
+					'location', c2.city,
+					'categories', (
+						SELECT JSON_AGG(JSON_BUILD_OBJECT('category_name', gc2.category_name))
+						FROM games_categories gc2
+						WHERE gc2.game_id = g2.id
+					)
+				))
+				FROM games g2
 					JOIN cafes c2 ON c2.id = g2.cafe_id
-				WHERE g2.game_type = g1.game_type AND g1.id <> g2.id) AS game_related_list
-			FROM 
-				games AS g1
+				WHERE g2.id <> g1.id
+				AND EXISTS (
+					SELECT 1 
+					FROM games_categories gc1
+					WHERE gc1.game_id = g1.id
+					AND EXISTS (
+						SELECT 1 
+						FROM games_categories gc2
+						WHERE gc2.game_id = g2.id
+						AND gc2.category_name = gc1.category_name
+					)
+				)
+				AND g2.deleted_date IS NULL
+			) AS game_related_list
+			FROM games g1
 		) AS games_related ON games_related.id = games.id
-		left join (
-			select r.game_id,  JSON_AGG(JSON_BUILD_OBJECT(
+		LEFT JOIN (
+			SELECT r.game_id,
+			JSON_AGG(JSON_BUILD_OBJECT(
 				'room_id', r.id,
 				'room_code', r.room_code,
-				'room_image_url', r.image_url,
-				'cafe_name', c."name",
+				'room_name', r.name,
+				'status', r.status,
 				'start_date', r.start_date,
 				'end_date', r.end_date,
-				'game_master_id', r.game_master_id,
-				'game_master_name', a."name"
-			)) AS room_available_list 
-			from rooms r 
-			left join games g on r.game_id = g.id 
-			left join cafes c on g.cafe_id = c.id 
-			left join admins a on r.game_master_id = a.id
-			where r.start_date > NOW() and r.deleted_date is null
-			group by r.game_id
-		) as game_room_available on game_room_available.game_id=games.id
-		WHERE games.game_code = $1`
+				'maximum_participant', r.maximum_participant,
+				'current_participant', (
+					SELECT COUNT(*) 
+					FROM rooms_participants rp 
+					WHERE rp.room_id = r.id AND rp.status = 'active'
+				)
+			)) AS room_available_list
+			FROM rooms r
+			WHERE r.status = 'open'
+			GROUP BY r.game_id
+		) AS game_room_available ON game_room_available.game_id = games.id
+		WHERE games.game_code = $1 AND games.deleted_date IS NULL`
 	)
 
-	err = db.QueryRow(ctx, sql, code).Scan(&data.Id, &data.CafeCode, &data.CafeName, &data.CafeAddress, &data.GameCode, &data.GameType, &data.Name, &data.ImageUrl, &data.CollectionUrl, &data.Description, &data.Status, &data.Duration, &data.MinimalParticipant, &data.MaximumParticipant, &data.Difficulty, &data.Level, &data.AdminCode, &data.GameCategories, &data.GameRelated, &data.GameRoomAvailables, &data.Location)
+	err = db.QueryRow(ctx, sql, code).Scan(&data.Id, &data.CafeCode, &data.CafeName, &data.CafeAddress, &data.GameCode, &data.GameType, &data.Name, &data.ImageUrl, &data.CollectionUrl, &data.Description, &data.Status, &data.NumberOfPopularity, &data.Duration, &data.MinimalParticipant, &data.MaximumParticipant, &data.Difficulty, &data.Level, &data.AdminCode, &data.GameCategories, &data.GameRelated, &data.GameRoomAvailables, &data.Location)
 	if err != nil {
 		return data, c.errHandler("model.GetGameByCode", err, utils.ErrGettingGameByCode)
 	}
@@ -380,4 +434,26 @@ func (c *Contract) GetGameIdByCode(db *pgxpool.Pool, ctx context.Context, code s
 		return id, c.errHandler("model.GetGameIdByCode", err, utils.ErrGettingGameByCode)
 	}
 	return id, nil
+}
+
+func (c *Contract) GetGameQRCodeByCode(ctx context.Context, code string) (string, error) {
+	fileName := code + "_QR"
+	qrString, err := utils.ImageToBase64(c.Config.GetString("upload_path") + "/" + fileName)
+
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return "", c.errHandler("model.AddGameQRCode", err, utils.ErrGettingGameQrCode)
+		}
+		fileName, err = qr.GenerateQRCode(code, fileName, c.Config.GetString("upload_path"))
+		if err != nil {
+			return "", c.errHandler("model.AddGameQRCode", err, utils.ErrGettingGameQrCode)
+		}
+
+		qrString, err = utils.ImageToBase64(c.Config.GetString("upload_path") + "/" + fileName)
+		if err != nil {
+			return "", c.errHandler("model.AddGameQRCode", err, utils.ErrGettingGameQrCode)
+		}
+	}
+
+	return qrString, nil
 }
