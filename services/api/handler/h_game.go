@@ -40,7 +40,6 @@ func (h *Contract) GetGameListAct(w http.ResponseWriter, r *http.Request) {
 	// Populate response
 	for _, v := range data {
 		// For mapping data game master
-		var isPopular bool
 		if v.AdminCode.String != "" {
 			dataGameMaster, err := m.GetAdminByCode(h.DB, ctx, v.AdminCode.String)
 			if err != nil {
@@ -57,24 +56,6 @@ func (h *Contract) GetGameListAct(w http.ResponseWriter, r *http.Request) {
 				ImageURL:    dataGameMaster.ImageURL,
 				PhoneNumber: dataGameMaster.PhoneNumber,
 			}
-		}
-
-		// Retrieve total count of players who have played the game
-		_, totalPlayers, err := m.GetUsersHavePlayedGameHistory(h.DB, ctx, v.GameCode)
-		if err != nil {
-			h.SendBadRequest(w, err.Error())
-			return
-		}
-
-		// // If the number of players in this game reaches 100, then isPopular is set to true
-		// if totalPlayers >= 100 {
-		// 	isPopular = true
-		// }
-
-		// for testing
-		// If the number of players in this game reaches 3, then isPopular is set to true
-		if totalPlayers >= 3 {
-			isPopular = true
 		}
 
 		res = append(res, response.GameRes{
@@ -95,8 +76,7 @@ func (h *Contract) GetGameListAct(w http.ResponseWriter, r *http.Request) {
 			MaximumParticipant: v.MaximumParticipant,
 			GameCategories:     response.BuildGameCategoryResp(v.GameCategories.String),
 			GameMasters:        gameMasterRes,
-			IsPopular:          isPopular,
-			// GameCharacteristic: response.BuildGameCharacteristicResp(v.GameCharacteristic.String),
+			NumberOfPopularity: v.NumberOfPopularity,
 		})
 	}
 
@@ -210,7 +190,6 @@ func (h *Contract) GetGameDetailAct(w http.ResponseWriter, r *http.Request) {
 		ctx           = context.TODO()
 		m             = model.Contract{App: h.App}
 		gameMasterRes response.AdminRes
-		isPopular     bool
 		dataPlayerRes []response.UsersHavePlayedGameHistoryRes
 	)
 
@@ -244,17 +223,6 @@ func (h *Contract) GetGameDetailAct(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.SendBadRequest(w, err.Error())
 		return
-	}
-
-	// // If the number of players in this game reaches 100, then isPopular is set to true
-	// if totalPlayers >= 100 {
-	// 	isPopular = true
-	// }
-
-	// for testing
-	// If the number of players in this game reaches 3, then isPopular is set to true
-	if totalPlayers >= 3 {
-		isPopular = true
 	}
 
 	// Build the response with player data
@@ -292,7 +260,6 @@ func (h *Contract) GetGameDetailAct(w http.ResponseWriter, r *http.Request) {
 		GameMasters:               gameMasterRes,
 		UserHavePlayedGameHistory: dataPlayerRes,
 		TotalPlayer:               totalPlayers,
-		IsPopular:                 isPopular,
 	}, nil)
 }
 
@@ -447,4 +414,28 @@ func (h *Contract) DeleteGameAct(w http.ResponseWriter, r *http.Request) {
 
 	// Send success response
 	h.SendSuccess(w, nil, nil)
+}
+
+// GetGameQRCodeAct ...
+func (h *Contract) GetGameQRCodeAct(w http.ResponseWriter, r *http.Request) {
+	var (
+		err  error
+		code = chi.URLParam(r, "code")
+		ctx  = context.TODO()
+		m    = model.Contract{App: h.App}
+	)
+
+	data, err := m.GetGameByCode(h.DB, ctx, code)
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		return
+	}
+
+	qr, err := m.GetGameQRCodeByCode(ctx, data.GameCode)
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		return
+	}
+
+	h.SendSuccess(w, qr, nil)
 }

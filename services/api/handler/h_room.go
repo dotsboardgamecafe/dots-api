@@ -515,6 +515,12 @@ func (h *Contract) SetWinnerRoomAct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	participants, err := m.GetAllParticipantByRoomCode(h.DB, ctx, roomCode)
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		return
+	}
+
 	params := roomParams{RoomStatus: room.Status}
 	if isRoomClosed(w, h, params) {
 		return
@@ -571,6 +577,11 @@ func (h *Contract) SetWinnerRoomAct(w http.ResponseWriter, r *http.Request) {
 			log.Printf("Error : %s", err)
 		}
 	}
+
+	for _, participant := range participants {
+		_ = m.AddUserGameCollections(h.DB, ctx, participant.UserId, room.GameId)
+	}
+
 	h.SendSuccess(w, nil, nil)
 }
 

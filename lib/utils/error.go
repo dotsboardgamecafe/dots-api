@@ -107,6 +107,7 @@ var (
 	ErrScanningListGame    = "Error scanning list game"
 	ErrAddingGame          = "Error adding game"
 	ErrGettingGameByCode   = "Error getting game by code"
+	ErrGettingGameQrCode   = "Error getting game qr code image"
 	ErrUpdatingGame        = "Error updating game by code"
 	ErrCheckExistGameUsed  = "Error on checking game is used by other room or tournament"
 	ErrForbiddenDeleteGame = "Game cannot be deleted, because is used in another room or tournament"
@@ -256,6 +257,10 @@ var (
 	ErrGettingListUserGameCollection  = "Error getting list user game collection"
 	ErrScanningListUserGameCollection = "Error scanning list user game collection"
 	ErrCountingListUserGameCollection = "Error counting list user game collection"
+	ErrGettingUserGameCollection      = "Error getting user game collection"
+	ErrAddingUserGameCollection       = "Error adding user game collection"
+	ErrUserGameCollectionExists       = "Error user game collection already exists"
+	ErrCountingUserGameCollection     = "Error counting user game collection"
 
 	//Error for User Game History
 	ErrGettingListUserGameHistory  = "Error getting list user game history"
