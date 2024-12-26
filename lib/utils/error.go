@@ -111,6 +111,9 @@ var (
 	ErrUpdatingGame        = "Error updating game by code"
 	ErrCheckExistGameUsed  = "Error on checking game is used by other room or tournament"
 	ErrForbiddenDeleteGame = "Game cannot be deleted, because is used in another room or tournament"
+	ErrGettingGameAdmins   = "Error getting list game admin"
+	ErrScanningGameAdmins  = "Error scanning list game admin"
+	ErrSyncingGameAdmins   = "Error syncing game admin"
 
 	// Error for module game category
 	ErrAddingGameCategory   = "Error adding game category"
