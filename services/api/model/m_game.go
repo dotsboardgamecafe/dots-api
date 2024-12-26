@@ -72,8 +72,9 @@ func (c *Contract) GetGameList(db *pgxpool.Pool, ctx context.Context, param requ
 		paramQuery []interface{}
 		totalData  int
 
-		query = `WITH 
-		unique_participants AS (
+		query = `WITH games_popularity AS (
+			SELECT game_id, COUNT(DISTINCT user_id) as number_of_popularity
+			FROM (
 				SELECT DISTINCT r.game_id, rp.user_id
 				FROM rooms r 
 				INNER JOIN rooms_participants rp ON r.id = rp.room_id AND rp.status = 'active'
@@ -81,17 +82,7 @@ func (c *Contract) GetGameList(db *pgxpool.Pool, ctx context.Context, param requ
 				SELECT DISTINCT t.game_id, tp.user_id
 				FROM tournaments t
 				INNER JOIN tournament_participants tp ON t.id = tp.tournament_id AND tp.status = 'active'
-				UNION
-				SELECT DISTINCT game_id, user_id FROM users_game_collections
-		),		
-		games_popularity AS (
-			SELECT game_id, COUNT(DISTINCT user_id) as number_of_popularity
-			FROM unique_participants
-			GROUP BY game_id
-		),
-		game_collections AS (
-			SELECT game_id, COUNT(distinct user_id) as number_of_collection
-			FROM (SELECT DISTINCT ugc.game_id, ugc.user_id FROM users_game_collections ugc) unique_collections 
+			) unique_participants
 			GROUP BY game_id
 		)
 		SELECT 
@@ -113,10 +104,9 @@ func (c *Contract) GetGameList(db *pgxpool.Pool, ctx context.Context, param requ
 			a.admin_code, 
 			COALESCE(gc.categories, '[]'::json) as categories,
 			c.city AS location, 
-			COALESCE(gp.number_of_popularity, 0) + coalesce(gcols.number_of_collection, 0) AS number_of_popularity
+			COALESCE(gp.number_of_popularity, 0) AS number_of_popularity
 		FROM games g
 		LEFT JOIN games_popularity gp ON gp.game_id = g.id
-		LEFT JOIN game_collections gcols on gcols.game_id = g.id
 		LEFT JOIN cafes c ON c.id = g.cafe_id
 		LEFT JOIN admins a ON a.id = g.admin_id 
 		LEFT JOIN LATERAL (
@@ -262,8 +252,9 @@ func (c *Contract) GetGameByCode(db *pgxpool.Pool, ctx context.Context, code str
 	var (
 		err  error
 		data GameResp
-		sql  = `WITH 
-		unique_participants AS (
+		sql  = `WITH games_popularity AS (
+			SELECT game_id, COUNT(DISTINCT user_id) as number_of_popularity
+			FROM (
 				SELECT DISTINCT r.game_id, rp.user_id
 				FROM rooms r 
 				INNER JOIN rooms_participants rp ON r.id = rp.room_id AND rp.status = 'active'
@@ -271,25 +262,13 @@ func (c *Contract) GetGameByCode(db *pgxpool.Pool, ctx context.Context, code str
 				SELECT DISTINCT t.game_id, tp.user_id
 				FROM tournaments t
 				INNER JOIN tournament_participants tp ON t.id = tp.tournament_id AND tp.status = 'active'
-				UNION
-				SELECT DISTINCT game_id, user_id
-				FROM users_game_collections
-		),		
-		games_popularity AS (
-			SELECT game_id, COUNT(DISTINCT user_id) as number_of_popularity
-			FROM unique_participants
-			GROUP BY game_id
-		),
-		game_collections AS (
-			SELECT game_id, COUNT(distinct user_id) as number_of_collection
-			FROM (SELECT DISTINCT ugc.game_id, ugc.user_id FROM users_game_collections ugc) unique_collections 
+			) unique_participants
 			GROUP BY game_id
 		)
 		SELECT 
 			games.id, cafes.cafe_code, cafes.name as cafe_name, cafes.address as cafe_address,
 			games.game_code, games.game_type, games.name, games.image_url, 
-			games.collection_url, games.description, games.status, 
-			COALESCE(gp.number_of_popularity, 0) + coalesce(gcols.number_of_collection, 0) AS number_of_popularity,
+			games.collection_url, games.description, games.status, COALESCE(gp.number_of_popularity, 0),
 			games.duration, games.minimal_participant, games.maximum_participant,
 			games.difficulty, games.level, admins.admin_code,  
 			games_categories.categories,
@@ -298,7 +277,6 @@ func (c *Contract) GetGameByCode(db *pgxpool.Pool, ctx context.Context, code str
 			cafes.city AS location
 		FROM games 
 		LEFT JOIN games_popularity gp ON gp.game_id = games.id
-		LEFT JOIN game_collections gcols on gcols.game_id = games.id
 		LEFT JOIN cafes ON cafes.id = games.cafe_id
 		LEFT JOIN admins ON admins.id = games.admin_id 
 		LEFT JOIN (
@@ -378,15 +356,15 @@ func (c *Contract) GetGameByCode(db *pgxpool.Pool, ctx context.Context, code str
 	return data, nil
 }
 
-func (c *Contract) AddGame(tx pgx.Tx, ctx context.Context, cafeId int64, code, gameType, name, imgUrl, collectionUrl, desc, difficulty, status string, level float64, minimalParticipant, maximumParticipant, duration int64) (int64, error) {
+func (c *Contract) AddGame(tx pgx.Tx, ctx context.Context, cafeId int64, code, gameType, name, imgUrl, collectionUrl, desc, difficulty, status string, level float64, minimalParticipant, maximumParticipant, duration, adminId int64) (int64, error) {
 	var (
 		err error
 		id  int64
-		sql = `INSERT INTO games(cafe_id, game_code, game_type, name, image_url, collection_url, difficulty, level, description, status, minimal_participant, maximum_participant, duration, created_date)
-	VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id`
+		sql = `INSERT INTO games(cafe_id, game_code, game_type, name, image_url, collection_url, difficulty, level, description, status, minimal_participant, maximum_participant, duration, admin_id, created_date)
+	VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING id`
 	)
 
-	err = tx.QueryRow(ctx, sql, cafeId, code, gameType, name, imgUrl, collectionUrl, difficulty, level, desc, status, minimalParticipant, maximumParticipant, duration, time.Now().In(time.UTC)).Scan(&id)
+	err = tx.QueryRow(ctx, sql, cafeId, code, gameType, name, imgUrl, collectionUrl, difficulty, level, desc, status, minimalParticipant, maximumParticipant, duration, adminId, time.Now().In(time.UTC)).Scan(&id)
 	if err != nil {
 		return id, c.errHandler("model.AddGame", err, utils.ErrAddingCafe)
 	}
@@ -394,16 +372,16 @@ func (c *Contract) AddGame(tx pgx.Tx, ctx context.Context, cafeId int64, code, g
 	return id, nil
 }
 
-func (c *Contract) UpdateGameByCode(tx pgx.Tx, ctx context.Context, cafeId int64, code, gameType, name, imgUrl, collectionUrl, desc, difficulty, status string, level float64, minimalParticipant, maximumParticipant, duration int64) error {
+func (c *Contract) UpdateGameByCode(tx pgx.Tx, ctx context.Context, cafeId int64, code, gameType, name, imgUrl, collectionUrl, desc, difficulty, status string, level float64, minimalParticipant, maximumParticipant, adminId, duration int64) error {
 	var (
 		err error
 		sql = `
 		UPDATE games 
-		SET cafe_id=$1, game_type=$2, name=$3, image_url=$4, collection_url=$5, description=$6, difficulty=$7, status=$8, level=$9, minimal_participant=$10, maximum_participant=$11, duration=$12, updated_date=$13
-		WHERE game_code=$14`
+		SET cafe_id=$1, game_type=$2, name=$3, image_url=$4, collection_url=$5, description=$6, difficulty=$7, status=$8, level=$9, minimal_participant=$10, maximum_participant=$11, admin_id=$12, duration=$13, updated_date=$14
+		WHERE game_code=$15`
 	)
 
-	_, err = tx.Exec(ctx, sql, cafeId, gameType, name, imgUrl, collectionUrl, desc, difficulty, status, level, minimalParticipant, maximumParticipant, duration, time.Now().In(time.UTC), code)
+	_, err = tx.Exec(ctx, sql, cafeId, gameType, name, imgUrl, collectionUrl, desc, difficulty, status, level, minimalParticipant, maximumParticipant, adminId, duration, time.Now().In(time.UTC), code)
 	if err != nil {
 		return c.errHandler("model.UpdateGameByCode", err, utils.ErrUpdatingGame)
 	}
