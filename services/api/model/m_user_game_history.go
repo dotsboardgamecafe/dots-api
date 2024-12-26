@@ -7,7 +7,6 @@ import (
 	"dots-api/services/api/request"
 	"fmt"
 	"math"
-	"time"
 
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -30,12 +29,11 @@ type UserGameHistoryResp struct {
 }
 
 type UsersHavePlayedGameHistoryEnt struct {
-	GameId      sql.NullInt64  `db:"game_id"`
-	GameName    sql.NullString `db:"game_name"`
-	UserCode    sql.NullString `db:"user_code"`
-	UserName    sql.NullString `db:"username"`
-	UserImage   sql.NullString `db:"user_image"`
-	CreatedDate time.Time      `db:"created_date"`
+	GameId    sql.NullInt64  `db:"game_id"`
+	GameName  sql.NullString `db:"game_name"`
+	UserCode  sql.NullString `db:"user_code"`
+	UserName  sql.NullString `db:"username"`
+	UserImage sql.NullString `db:"user_image"`
 }
 
 func (c *Contract) GetUserGameHistories(db *pgxpool.Pool, ctx context.Context, userCode string, param request.UserGameHistoryParam) ([]UserGameHistoryResp, request.UserGameHistoryParam, error) {
@@ -45,15 +43,16 @@ func (c *Contract) GetUserGameHistories(db *pgxpool.Pool, ctx context.Context, u
 		paramQuery []interface{}
 		totalData  int
 		// where      []string
+
 		query = `select
 					gdata.user_id,
-					u.user_code,
+					u.user_code ,
 					gdata.game_id,
 					g."name" as game_name,
 					g.image_url as game_image_url,
 					g.duration as game_duration,
 					g.difficulty as game_difficulty,
-					g.game_type,
+					g.game_type ,
 					gdata.player_slot,
 					gdata.game_master_id,
 					a.admin_code as game_master_code,
@@ -76,6 +75,7 @@ func (c *Contract) GetUserGameHistories(db *pgxpool.Pool, ctx context.Context, u
 	)
 
 	paramQuery = append(paramQuery, userCode)
+
 	{
 		newQcount := `SELECT COUNT(*) FROM ( ` + query + ` ) AS data`
 		err := db.QueryRow(ctx, newQcount, paramQuery...).Scan(&totalData)
@@ -95,8 +95,10 @@ func (c *Contract) GetUserGameHistories(db *pgxpool.Pool, ctx context.Context, u
 	// Limit and Offset
 	param.Offset = (param.Page - 1) * param.Limit
 	query += " ORDER BY " + param.Order + " " + param.Sort + " "
+
 	paramQuery = append(paramQuery, param.Offset)
 	query += fmt.Sprintf("offset $%d ", len(paramQuery))
+
 	paramQuery = append(paramQuery, param.Limit)
 	query += fmt.Sprintf("limit $%d ", len(paramQuery))
 
@@ -152,32 +154,32 @@ func (c *Contract) GetUsersHavePlayedGameHistory(db *pgxpool.Pool, ctx context.C
 		err       error
 		list      []UsersHavePlayedGameHistoryEnt
 		totalData int64
-		query     = `WITH 
-		unique_participants AS (
-				SELECT DISTINCT r.game_id, rp.user_id, rp.created_date
-				FROM rooms r 
-				INNER JOIN rooms_participants rp ON r.id = rp.room_id AND rp.status = 'active'
-				UNION
-				SELECT DISTINCT t.game_id, tp.user_id, tp.created_date
-				FROM tournaments t
-				INNER JOIN tournament_participants tp ON t.id = tp.tournament_id AND tp.status = 'active'
-				UNION
-				SELECT DISTINCT game_id, user_id, created_date FROM users_game_collections
-		)
-		SELECT DISTINCT
-			g.id AS game_id, 
-			g."name" AS game_name, 
-			u.user_code, 
-			u.username, 
-			u.image_url AS user_image,
-			up.	created_date
-		FROM unique_participants up
 
-		LEFT JOIN users as u ON up.user_id = u.id
-
-		LEFT JOIN games as g ON up.game_id = g.id 
-		WHERE g.game_code = $1
-		`
+		query = `SELECT 
+				     games.id AS game_id, 
+				     games."name" AS game_name, 
+				     COALESCE(u.user_code, u2.user_code) AS user_code, 
+				     COALESCE(u.username, u2.username) AS username, 
+				     COALESCE(u.image_url, u2.image_url) AS user_image 
+				 FROM 
+				     games
+				 INNER JOIN 
+				     rooms ON rooms.game_id = games.id
+				 INNER JOIN 
+				     rooms_participants rp ON rp.room_id = rooms.id AND rp.status = 'active'
+				 INNER JOIN 
+				     tournaments t ON t.game_id = games.id
+				 INNER JOIN 
+				     tournament_participants tp ON tp.tournament_id = t.id AND tp.status = 'active'
+				 INNER JOIN 
+				     users u ON u.id = tp.user_id
+				 INNER JOIN 
+				     users u2 ON u2.id = rp.user_id
+				 WHERE 
+				     games.game_code = $1
+				 GROUP BY 
+				     games.id, games."name", COALESCE(u.user_code, u2.user_code), COALESCE(u.username, u2.username), COALESCE(u.image_url, u2.image_url)
+				 `
 	)
 
 	// Count total records
@@ -187,17 +189,19 @@ func (c *Contract) GetUsersHavePlayedGameHistory(db *pgxpool.Pool, ctx context.C
 		return list, totalData, c.errHandler("model.GetUserGameHistorys", err, utils.ErrCountingListUserGameHistory)
 	}
 
-	query += `ORDER BY up.created_date desc LIMIT 3`
+	query += `ORDER BY username ASC LIMIT 3`
+
 	// Execute query
 	rows, err := db.Query(ctx, query, gameCode)
 	if err != nil {
 		return list, totalData, c.errHandler("model.GetUserGameHistories", err, utils.ErrGettingListUserGameHistory)
 	}
 	defer rows.Close()
+
 	// Process results
 	for rows.Next() {
 		var data UsersHavePlayedGameHistoryEnt
-		err = rows.Scan(&data.GameId, &data.GameName, &data.UserCode, &data.UserName, &data.UserImage, &data.CreatedDate)
+		err = rows.Scan(&data.GameId, &data.GameName, &data.UserCode, &data.UserName, &data.UserImage)
 		if err != nil {
 			return list, totalData, c.errHandler("model.GetUserGameHistories", err, utils.ErrScanningListUserGameHistory)
 		}

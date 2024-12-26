@@ -1,6 +1,0 @@
-CREATE TABLE IF NOT EXISTS games_admins (
-    game_id INTEGER REFERENCES games(id) ON DELETE CASCADE ON UPDATE CASCADE,
-    admin_id INTEGER REFERENCES admins(id) ON DELETE CASCADE ON UPDATE CASCADE,
-
-    PRIMARY KEY(game_id, admin_id)
-);
