@@ -24,6 +24,7 @@ type (
 		MinimalParticipant int64             `json:"minimal_participant"`
 		MaximumParticipant int64             `json:"maximum_participant" validate:"required"`
 		AdminCode          string            `json:"admin_code"`
+		AdminCodes         []string          `json:"admin_codes"`
 		GameCategories     []GameCategoryReq `json:"game_categories"`
 	}
 
@@ -94,7 +95,7 @@ func (param *GameParam) ParseGame(values url.Values) error {
 
 	if status, ok := values["status"]; ok && len(status) > 0 {
 		if !utils.Contains(utils.StatusGame, status[0]) {
-			return fmt.Errorf("%s", "wrong status value for game(active|inactive)")
+			return fmt.Errorf("%s", "wrong status value for game(active|inactive")
 		}
 		param.Status = status[0]
 	}
