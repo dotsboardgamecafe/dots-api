@@ -16,12 +16,11 @@ import (
 // GetGameListAct ...
 func (h *Contract) GetGameListAct(w http.ResponseWriter, r *http.Request) {
 	var (
-		err           error
-		ctx           = context.TODO()
-		m             = model.Contract{App: h.App}
-		res           = make([]response.GameRes, 0)
-		param         = request.GameParam{}
-		gameMasterRes response.AdminRes
+		err   error
+		ctx   = context.TODO()
+		m     = model.Contract{App: h.App}
+		res   = make([]response.GameRes, 0)
+		param = request.GameParam{}
 	)
 
 	// Define urlQuery and Parse
@@ -40,22 +39,24 @@ func (h *Contract) GetGameListAct(w http.ResponseWriter, r *http.Request) {
 	// Populate response
 	for _, v := range data {
 		// For mapping data game master
-		if v.AdminCode.String != "" {
-			dataGameMaster, err := m.GetAdminByCode(h.DB, ctx, v.AdminCode.String)
-			if err != nil {
-				h.SendBadRequest(w, err.Error())
-				return
-			}
+		var gameMasterRes []response.AdminRes
 
-			gameMasterRes = response.AdminRes{
-				AdminCode:   dataGameMaster.AdminCode,
-				Email:       dataGameMaster.Email,
-				Name:        dataGameMaster.Name,
-				UserName:    dataGameMaster.UserName,
-				Status:      dataGameMaster.Status,
-				ImageURL:    dataGameMaster.ImageURL,
-				PhoneNumber: dataGameMaster.PhoneNumber,
-			}
+		gameMasters, err := m.GetGameAdmins(h.DB, ctx, v.Id)
+		if err != nil {
+			h.SendBadRequest(w, err.Error())
+			return
+		}
+
+		for _, v := range gameMasters {
+			gameMasterRes = append(gameMasterRes, response.AdminRes{
+				AdminCode:   v.AdminCode,
+				Email:       v.Email,
+				Name:        v.Name,
+				UserName:    v.UserName,
+				Status:      v.Status,
+				ImageURL:    v.ImageURL,
+				PhoneNumber: v.PhoneNumber,
+			})
 		}
 
 		res = append(res, response.GameRes{
@@ -77,6 +78,7 @@ func (h *Contract) GetGameListAct(w http.ResponseWriter, r *http.Request) {
 			GameCategories:     response.BuildGameCategoryResp(v.GameCategories.String),
 			GameMasters:        gameMasterRes,
 			NumberOfPopularity: v.NumberOfPopularity,
+			// GameCharacteristic: response.BuildGameCharacteristicResp(v.GameCharacteristic.String),
 		})
 	}
 
@@ -125,14 +127,28 @@ func (h *Contract) AddGameAct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	adminId, err := m.GetAdminIdByCode(h.DB, ctx, req.AdminCode)
+	// adminId, err := m.GetAdminIdByCode(h.DB, ctx, req.AdminCode)
+	// if err != nil {
+	// 	h.SendBadRequest(w, err.Error())
+	// 	tx.Rollback(ctx)
+	// 	return
+	// }
+
+	gameId, err := m.AddGame(tx, ctx, cafeId, code, req.GameType, req.Name, req.ImageUrl, string(collectionUrl), req.Description, req.Difficulty, req.Status, req.Level, req.MinimalParticipant, req.MaximumParticipant, req.Duration)
 	if err != nil {
 		h.SendBadRequest(w, err.Error())
 		tx.Rollback(ctx)
 		return
 	}
 
-	gameId, err := m.AddGame(tx, ctx, cafeId, code, req.GameType, req.Name, req.ImageUrl, string(collectionUrl), req.Description, req.Difficulty, req.Status, req.Level, req.MinimalParticipant, req.MaximumParticipant, req.Duration, adminId)
+	admins, err := m.GetAdminIdsByCode(h.DB, ctx, req.AdminCodes)
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		tx.Rollback(ctx)
+		return
+	}
+
+	err = m.SyncGameAdmins(tx, ctx, gameId, admins)
 	if err != nil {
 		h.SendBadRequest(w, err.Error())
 		tx.Rollback(ctx)
@@ -189,7 +205,7 @@ func (h *Contract) GetGameDetailAct(w http.ResponseWriter, r *http.Request) {
 		code          = chi.URLParam(r, "code")
 		ctx           = context.TODO()
 		m             = model.Contract{App: h.App}
-		gameMasterRes response.AdminRes
+		gameMasterRes []response.AdminRes
 		dataPlayerRes []response.UsersHavePlayedGameHistoryRes
 	)
 
@@ -199,23 +215,22 @@ func (h *Contract) GetGameDetailAct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if data.AdminCode.String != "" {
-		// For mapping data game master
-		dataGameMaster, err := m.GetAdminByCode(h.DB, ctx, data.AdminCode.String)
-		if err != nil {
-			h.SendBadRequest(w, err.Error())
-			return
-		}
+	gameMasters, err := m.GetGameAdmins(h.DB, ctx, data.Id)
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		return
+	}
 
-		gameMasterRes = response.AdminRes{
-			AdminCode:   dataGameMaster.AdminCode,
-			Email:       dataGameMaster.Email,
-			Name:        dataGameMaster.Name,
-			UserName:    dataGameMaster.UserName,
-			Status:      dataGameMaster.Status,
-			ImageURL:    dataGameMaster.ImageURL,
-			PhoneNumber: dataGameMaster.PhoneNumber,
-		}
+	for _, v := range gameMasters {
+		gameMasterRes = append(gameMasterRes, response.AdminRes{
+			AdminCode:   v.AdminCode,
+			Email:       v.Email,
+			Name:        v.Name,
+			UserName:    v.UserName,
+			Status:      v.Status,
+			ImageURL:    v.ImageURL,
+			PhoneNumber: v.PhoneNumber,
+		})
 	}
 
 	// Retrieve the list of players who have played the game and the total count
@@ -249,6 +264,7 @@ func (h *Contract) GetGameDetailAct(w http.ResponseWriter, r *http.Request) {
 		CollectionUrl:             response.BuildCollectionURLResp(data.CollectionUrl),
 		Description:               data.Description,
 		Status:                    data.Status,
+		NumberOfPopularity:        data.NumberOfPopularity,
 		Duration:                  data.Duration,
 		Difficulty:                data.Difficulty.String,
 		Level:                     data.Level,
@@ -312,14 +328,21 @@ func (h *Contract) UpdateGameAct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	adminId, err := m.GetAdminIdByCode(h.DB, ctx, req.AdminCode)
+	err = m.UpdateGameByCode(tx, ctx, cafeId, code, req.GameType, req.Name, req.ImageUrl, string(collectionUrl), req.Description, req.Difficulty, req.Status, req.Level, req.MinimalParticipant, req.MaximumParticipant, req.Duration)
 	if err != nil {
 		h.SendBadRequest(w, err.Error())
 		tx.Rollback(ctx)
 		return
 	}
 
-	err = m.UpdateGameByCode(tx, ctx, cafeId, code, req.GameType, req.Name, req.ImageUrl, string(collectionUrl), req.Description, req.Difficulty, req.Status, req.Level, req.MinimalParticipant, req.MaximumParticipant, adminId, req.Duration)
+	admins, err := m.GetAdminIdsByCode(h.DB, ctx, req.AdminCodes)
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		tx.Rollback(ctx)
+		return
+	}
+
+	err = m.SyncGameAdmins(tx, ctx, gameId, admins)
 	if err != nil {
 		h.SendBadRequest(w, err.Error())
 		tx.Rollback(ctx)
