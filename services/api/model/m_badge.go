@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"dots-api/lib/utils"
 	"dots-api/services/api/request"
+	"errors"
 	"fmt"
 	"math"
 	"strconv"
@@ -92,6 +93,65 @@ func (c *Contract) GetBadgeList(db *pgxpool.Pool, ctx context.Context, param req
 	return list, param, nil
 }
 
+func (c *Contract) GetUnownedBadgeListByUserCode(db *pgxpool.Pool, ctx context.Context, userCode string, param request.UnownedBadgeParam) ([]BadgeEnt, request.UnownedBadgeParam, error) {
+	var (
+		err        error
+		list       []BadgeEnt
+		paramQuery []interface{}
+		where      []string
+		totalData  int
+		query      = `SELECT 
+			id, badge_code, badge_category, description, vp_point, name, image_url, status, parent_code, created_date, updated_date, deleted_date 
+		FROM badges`
+	)
+
+	paramQuery = append(paramQuery, userCode)
+	where = append(where, fmt.Sprintf("id NOT IN (SELECT badge_id FROM users_badges left join users on users.id = users_badges.user_id WHERE users.user_code = $%d)", len(paramQuery)))
+	where = append(where, "status = 'active'")
+	where = append(where, "deleted_date IS NULL")
+
+	query += " WHERE " + strings.Join(where, " AND ")
+	{
+		newQcount := `SELECT COUNT(*) FROM ( ` + query + ` ) AS total`
+		err := db.QueryRow(ctx, newQcount, paramQuery...).Scan(&totalData)
+		if err != nil {
+			return list, param, c.errHandler("model.GetUnownedBadgeListByUserCode", err, newQcount)
+		}
+		param.Count = totalData
+	}
+	// Limit and Offset
+	param.Offset = (param.Page - 1) * param.Limit
+	query += " ORDER BY " + param.SortKey + " " + param.Sort + " "
+
+	paramQuery = append(paramQuery, param.Offset)
+	query += fmt.Sprintf("OFFSET $%d ", len(paramQuery))
+
+	paramQuery = append(paramQuery, param.Limit)
+	query += fmt.Sprintf("LIMIT $%d ", len(paramQuery))
+
+	rows, err := db.Query(ctx, query, paramQuery...)
+	if err != nil {
+		return list, param, c.errHandler("model.GetUnownedBadgeListByUserCode", err, utils.ErrGettingListBadge)
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		var badge BadgeEnt
+		err = rows.Scan(
+			&badge.Id, &badge.BadgeCode, &badge.BadgeCategory, &badge.Description, &badge.VPPoint, &badge.Name,
+			&badge.ImageURL, &badge.Status, &badge.ParentCode, &badge.CreatedDate,
+			&badge.UpdatedDate, &badge.DeletedDate,
+		)
+		if err != nil {
+			return nil, param, c.errHandler("model.GetUnownedBadgeListByUserCode", err, utils.ErrScanningListBadge)
+		}
+		list = append(list, badge)
+	}
+
+	return list, param, nil
+}
+
 // GetBadgeDetail retrieves details of a badge by its ID.
 func (c *Contract) GetBadgeDetailByCode(db *pgxpool.Pool, ctx context.Context, code string) (BadgeEnt, error) {
 	var badge BadgeEnt
@@ -155,9 +215,9 @@ func (c *Contract) GetBadgeListByKeyCondition(db *pgxpool.Pool, ctx context.Cont
 	SELECT 
 		b.badge_code 
 	FROM badges_rules br 
-	LEFT JOIN badges b ON b.id = br.badge_id 
+	LEFT JOIN badges b ON b.id = br.badge_id AND b.badge_category != $2
 	WHERE br.key_condition = $1`
-	rows, err := db.Query(ctx, query, keyCondition)
+	rows, err := db.Query(ctx, query, keyCondition, utils.BadgeCategoryGift.String())
 	if err != nil {
 		return list, c.errHandler("model.GetBadgeListByKeyCondition", err, utils.ErrGettingBadgeRuleList)
 	}
@@ -225,6 +285,29 @@ func (c *Contract) GetBadgeIdByCode(db *pgxpool.Pool, ctx context.Context, code 
 		return id, c.errHandler("model.GetBadgeIdByCode", err, utils.ErrGettingBadgeByCode)
 	}
 	return id, nil
+}
+
+func (c *Contract) AddBadgeToUser(db *pgxpool.Pool, ctx context.Context, badgeId, userId, adminId int64) error {
+	checkQuery := `
+        SELECT EXISTS(SELECT id FROM users_badges WHERE user_id = $1 AND badge_id = $2)
+    `
+	var exists bool = false
+	err := db.QueryRow(ctx, checkQuery, userId, badgeId).Scan(&exists)
+	if err != nil && err != pgx.ErrNoRows {
+		return c.errHandler("model.AddBadgeToUser", err, utils.ErrorCheckingUserBadge)
+	}
+
+	// If the badge already exists, skip adding it
+	if exists {
+		return c.errHandler("model.AddBadgeToUser", errors.New("user already has the badge"), utils.ErrUserAlreadyHasTheBadge)
+	}
+
+	query := `INSERT INTO users_badges (badge_id, user_id, is_claim, created_by) VALUES ($1, $2, false, $3)`
+	_, err = db.Exec(ctx, query, badgeId, userId, adminId)
+	if err != nil {
+		return c.errHandler("model.AddBadgeToUser", err, utils.ErrAddingBadgeToUser)
+	}
+	return nil
 }
 
 // Private Function
