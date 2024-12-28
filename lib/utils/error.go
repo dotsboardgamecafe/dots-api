@@ -228,6 +228,9 @@ var (
 	ErrDeletingBadge                  = "Error deleting badge"
 	ErrBadgeNotFound                  = "Badge not found"
 	ErrCountingListBadge              = "Error counting list badge"
+	ErrAddingBadgeToUser              = "Error adding badge to user"
+	ErrBadgeCannotBeAddedToUser       = "Error badge cannot be added to user"
+	ErrUserAlreadyHasTheBadge         = "Error user already has the badge"
 
 	ErrGettingBadgeRuleList   = "Error getting list of badge rules"
 	ErrScanningBadgeRule      = "Error scanning badge rule"
