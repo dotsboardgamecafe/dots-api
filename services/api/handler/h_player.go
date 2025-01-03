@@ -34,6 +34,7 @@ func (h *Contract) GetHallOfFame(w http.ResponseWriter, r *http.Request) {
 	// Populate response
 	for _, v := range data {
 		res = append(res, response.HallOfFameRes{
+			UserCode:            v.UserCode,
 			UserName:            v.UserName,
 			UserFullName:        v.UserFullName,
 			UserImgUrl:          v.UserImgUrl,
@@ -85,6 +86,7 @@ func (h *Contract) GetMonthlyTopAchiever(w http.ResponseWriter, r *http.Request)
 
 		res = append(res, response.MonthlyTopAchiever{
 			Ranking:         v.Ranking,
+			UserCode:        v.UserCode,
 			UserFullName:    v.UserFullName,
 			UserName:        v.UserName,
 			UserImgUrl:      v.UserImgUrl,

@@ -7,12 +7,16 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type (
 	UpdateProfileUserReq struct {
 		FullName    string `json:"full_name"`
+		UserName    string `json:"username"`
 		ImageUrl    string `json:"image_url"`
+		Gender      string `json:"gender"`
+		DateOfBirth string `json:"date_of_birth"`
 		PhoneNumber string `json:"phone_number"`
 	}
 
@@ -27,12 +31,14 @@ type (
 	}
 
 	UpdateUserReq struct {
-		FullName    string `json:"full_name"`
-		ImageUrl    string `json:"image_url"`
-		PhoneNumber string `json:"phone_number"`
-		Email       string `json:"email"`
-		UserName    string `json:"username"`
-		Status      string `json:"status"`
+		FullName    string    `json:"full_name"`
+		ImageUrl    string    `json:"image_url"`
+		Gender      string    `json:"gender"`
+		DateOfBirth time.Time `json:"date_of_birth"`
+		PhoneNumber string    `json:"phone_number"`
+		Email       string    `json:"email"`
+		UserName    string    `json:"username"`
+		Status      string    `json:"status"`
 	}
 
 	UserParam struct {

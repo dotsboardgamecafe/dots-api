@@ -45,6 +45,8 @@ func (h *Contract) GetUserListAct(w http.ResponseWriter, r *http.Request) {
 			UserName:           v.UserName.String,
 			PhoneNumber:        v.PhoneNumber,
 			FullName:           v.FullName,
+			DateOfBirth:        v.DateOfBirth.String,
+			Gender:             v.Gender.String,
 			ImageURL:           v.ImageURL.String,
 			LatestPoint:        v.LatestPoint,
 			LatestTier:         v.LatestTierName,
@@ -82,6 +84,8 @@ func (h *Contract) GetUserDetailAct(w http.ResponseWriter, r *http.Request) {
 		UserName:           data.UserName.String,
 		PhoneNumber:        data.PhoneNumber,
 		FullName:           data.FullName,
+		DateOfBirth:        data.DateOfBirth.String,
+		Gender:             data.Gender.String,
 		ImageURL:           data.ImageURL.String,
 		LatestPoint:        data.LatestPoint,
 		LatestTier:         data.LatestTierName,
@@ -142,10 +146,78 @@ func (h *Contract) GetUserProfileAct(w http.ResponseWriter, r *http.Request) {
 		UserName:           dataUser.UserName.String,
 		PhoneNumber:        dataUser.PhoneNumber,
 		FullName:           dataUser.FullName,
+		DateOfBirth:        dataUser.DateOfBirth.String,
+		Gender:             dataUser.Gender.String,
 		ImageURL:           dataUser.ImageURL.String,
 		LatestPoint:        dataUser.LatestPoint,
 		LatestTier:         dataUser.LatestTierName,
 		Password:           dataUser.Password,
+		XPlayer:            dataUser.XPlayer,
+		TierRangePoint:     &TierMinRangePoint,
+		TierBenefits:       TierBenefits,
+		StatusVerification: dataUser.StatusVerification,
+		Status:             dataUser.Status,
+		MemberSince:        dataUser.CreatedDate.Format(utils.YEAR_FORMAT),
+		CreatedDate:        dataUser.CreatedDate.Format(utils.DATE_TIME_FORMAT),
+		UpdatedDate:        dataUser.UpdatedDate.Time.Format(utils.DATE_TIME_FORMAT),
+	}
+
+	h.SendSuccess(w, res, nil)
+}
+
+// GetUserProfileByCodeAct
+func (h *Contract) GetUserProfileByCodeAct(w http.ResponseWriter, r *http.Request) {
+	var (
+		err          error
+		ctx          = context.TODO()
+		code         = chi.URLParam(r, "code")
+		m            = model.Contract{App: h.App}
+		dataUser     model.UserEnt
+		res          = response.UserProfileRes{}
+		TierBenefits = make([]response.TierWithBenefitRes, 0)
+	)
+
+	dataUser, err = m.GetUserByUserCode(h.DB, ctx, code)
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		return
+	}
+
+	// After that, get the list of all rewards based on user latest tier
+	rewardList, err := m.GetTierWithReward(h.DB, ctx, dataUser.LatestTierId)
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		return
+	}
+
+	// Populate TierBenefits
+	for _, v := range rewardList {
+		TierBenefits = append(TierBenefits, response.TierWithBenefitRes{
+			RewardCode:        v.RewardCode,
+			RewardName:        v.RewardName.String,
+			RewardImageUrl:    v.RewardImageUrl.String,
+			RewardDescription: v.RewardDescription.String,
+		})
+	}
+
+	// Get tier range min-max point
+	TierMinRangePoint := response.TierRangePointRes{
+		MinPoint: dataUser.TierMinRangePoint,
+		MaxPoint: dataUser.TierMaxRangePoint,
+	}
+
+	// Populate response
+	res = response.UserProfileRes{
+		UserCode:           dataUser.UserCode,
+		Email:              dataUser.Email.String,
+		UserName:           dataUser.UserName.String,
+		PhoneNumber:        dataUser.PhoneNumber,
+		FullName:           dataUser.FullName,
+		DateOfBirth:        dataUser.DateOfBirth.String,
+		Gender:             dataUser.Gender.String,
+		ImageURL:           dataUser.ImageURL.String,
+		LatestPoint:        dataUser.LatestPoint,
+		LatestTier:         dataUser.LatestTierName,
 		XPlayer:            dataUser.XPlayer,
 		TierRangePoint:     &TierMinRangePoint,
 		TierBenefits:       TierBenefits,
@@ -167,6 +239,9 @@ func (h *Contract) UpdateUserProfileAct(w http.ResponseWriter, r *http.Request) 
 		m           = model.Contract{App: h.App}
 		userCode    = bootstrap.GetIdentifierCodeFromToken(ctx, r)
 		fullName    string
+		userName    string
+		dateOfBirth string
+		gender      string
 		imageUri    string
 		phoneNUmber string
 	)
@@ -189,6 +264,19 @@ func (h *Contract) UpdateUserProfileAct(w http.ResponseWriter, r *http.Request) 
 		fullName = currentData.FullName
 	}
 
+	userName = req.UserName
+	if reflect.TypeOf(userName) == nil || userName == "" {
+		userName = currentData.UserName.String
+	}
+
+	if userName != currentData.UserName.String {
+		err = m.CheckIfUsernameExists(h.DB, ctx, req.UserName)
+		if err != nil {
+			h.SendBadRequest(w, err.Error())
+			return
+		}
+	}
+
 	imageUri = req.ImageUrl
 	if reflect.TypeOf(imageUri) == nil || imageUri == "" {
 		imageUri = currentData.ImageURL.String
@@ -199,7 +287,29 @@ func (h *Contract) UpdateUserProfileAct(w http.ResponseWriter, r *http.Request) 
 		phoneNUmber = currentData.PhoneNumber
 	}
 
-	err = m.UpdateUserProfile(h.DB, ctx, userCode, fullName, imageUri, phoneNUmber)
+	if req.DateOfBirth == "" && !currentData.DateOfBirth.Valid {
+		h.SendBadRequest(w, "you have not set your date of birth")
+		return
+	}
+
+	if req.DateOfBirth == "" {
+		dateOfBirth = currentData.DateOfBirth.String
+	} else {
+		dateOfBirth = req.DateOfBirth
+	}
+
+	if req.Gender == "" && !currentData.Gender.Valid {
+		h.SendBadRequest(w, "you have not set your gender")
+		return
+	}
+
+	if req.Gender == "male" || req.Gender == "female" {
+		gender = req.Gender
+	} else {
+		gender = currentData.Gender.String
+	}
+
+	err = m.UpdateUserProfile(h.DB, ctx, userCode, fullName, userName, gender, dateOfBirth, imageUri, phoneNUmber)
 	if err != nil {
 		h.SendBadRequest(w, err.Error())
 		return
@@ -252,12 +362,26 @@ func (h *Contract) UpdateUserAct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	currentData, err := m.GetUserByUserCode(h.DB, ctx, userCode)
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		return
+	}
+
+	if req.UserName != currentData.UserName.String {
+		err = m.CheckIfUsernameExists(h.DB, ctx, req.UserName)
+		if err != nil {
+			h.SendBadRequest(w, err.Error())
+			return
+		}
+	}
+
 	if !utils.Contains(utils.StatusUser, req.Status) {
 		h.SendBadRequest(w, "wrong status value for user(active|inactive)")
 		return
 	}
 
-	err = m.UpdateUser(h.DB, ctx, userCode, req.FullName, req.ImageUrl, req.PhoneNumber, req.Email, req.UserName, req.Status)
+	err = m.UpdateUser(h.DB, ctx, userCode, req.FullName, req.DateOfBirth.Format(utils.DATE_FORMAT), req.Gender, req.ImageUrl, req.PhoneNumber, req.Email, req.UserName, req.Status)
 	if err != nil {
 		h.SendBadRequest(w, err.Error())
 		return

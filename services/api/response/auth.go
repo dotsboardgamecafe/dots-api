@@ -5,6 +5,8 @@ type LoginUserRes struct {
 	UserCode    string          `json:"user_code"`
 	ImageURL    string          `json:"image_url"`
 	FullName    string          `json:"fullname"`
+	DateOfBirth string          `json:"date_of_birth"`
+	Gender      string          `json:"gender"`
 	PhoneNumber string          `json:"phone_number"`
 	Email       string          `json:"email"`
 	ExpiredAt   string          `json:"expired_at"`

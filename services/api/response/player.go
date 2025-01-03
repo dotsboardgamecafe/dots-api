@@ -2,6 +2,7 @@ package response
 
 // Hall of Fame
 type HallOfFameRes struct {
+	UserCode            string `json:"user_code"`
 	UserName            string `json:"user_name"`
 	UserFullName        string `json:"user_fullname"`
 	UserImgUrl          string `json:"user_img_url"`
@@ -14,6 +15,7 @@ type HallOfFameRes struct {
 // Monthly Top Achiever
 type MonthlyTopAchiever struct {
 	Ranking         int    `json:"rank"`
+	UserCode        string `json:"user_code"`
 	UserFullName    string `json:"user_fullname"`
 	UserName        string `json:"user_name"`
 	UserImgUrl      string `json:"user_img_url"`

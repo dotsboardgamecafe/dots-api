@@ -51,7 +51,7 @@ func (c *Contract) GenerateTokenJWT(userIdentifier, actorType, email string) (st
 	return token, expAt, nil
 }
 
-func (c *Contract) RegisterUser(db *pgxpool.Pool, ctx context.Context, fullName, email, phoneNumber, password, userName, xPlayer string) (string, string, error) {
+func (c *Contract) RegisterUser(db *pgxpool.Pool, ctx context.Context, fullName, dateOfBirth, gender, email, phoneNumber, password, userName, xPlayer string) (string, string, error) {
 	var (
 		err           error
 		id            int64
@@ -94,9 +94,9 @@ func (c *Contract) RegisterUser(db *pgxpool.Pool, ctx context.Context, fullName,
 	db.QueryRow(ctx, "SELECT id FROM tiers WHERE tier_code = 'TIER-001';").Scan(&tierId)
 
 	// Insert user data into 'users' table
-	userInsertSQL = `INSERT INTO users (user_code, fullname, email, phone_number, password, status_verification, status, created_date, latest_tier_id, username, x_player, role_id) 
-        VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id`
-	err = db.QueryRow(ctx, userInsertSQL, userCode, fullName, email, phoneNumber, passwordHash, false, "active", time.Now().In(time.UTC), tierId, userName, xPlayer, utils.RoleMemberId).Scan(&id)
+	userInsertSQL = `INSERT INTO users (user_code, fullname, date_of_birth, gender, email, phone_number, password, status_verification, status, created_date, latest_tier_id, username, x_player, role_id) 
+        VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id`
+	err = db.QueryRow(ctx, userInsertSQL, userCode, fullName, dateOfBirth, gender, email, phoneNumber, passwordHash, false, "active", time.Now().In(time.UTC), tierId, userName, xPlayer, utils.RoleMemberId).Scan(&id)
 
 	if err != nil {
 		// Handle specific error cases

@@ -6,6 +6,8 @@ type UserRes struct {
 	UserName           string `json:"username"`
 	PhoneNumber        string `json:"phone_number"`
 	FullName           string `json:"fullname"`
+	DateOfBirth        string `json:"date_of_birth"`
+	Gender             string `json:"gender"`
 	ImageURL           string `json:"image_url"`
 	LatestPoint        int    `json:"latest_point"`
 	LatestTier         string `json:"latest_tier"`
@@ -25,6 +27,8 @@ type UserProfileRes struct {
 	UserName           string               `json:"username"`
 	PhoneNumber        string               `json:"phone_number"`
 	FullName           string               `json:"fullname"`
+	DateOfBirth        string               `json:"date_of_birth"`
+	Gender             string               `json:"gender"`
 	ImageURL           string               `json:"image_url"`
 	LatestPoint        int                  `json:"latest_point"`
 	LatestTier         string               `json:"latest_tier"`
