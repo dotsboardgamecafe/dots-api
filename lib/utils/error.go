@@ -64,6 +64,8 @@ var (
 	ErrGettingUserLatestPoint         = "Error getting user latest point"
 	ErrUpdatingUserStatus             = "Error updating user status"
 	ErrDeletingAdmin                  = "Error deleting admin by code"
+	ErrCheckingIfUsernameExists       = "Error checking if username exists"
+	ErrUsernameHasAlreadyTaken        = "Username has already taken"
 
 	// Error for module user address
 	ErrGettingUserAddresses      = "Error getting user addresses by user ID"
@@ -228,6 +230,9 @@ var (
 	ErrDeletingBadge                  = "Error deleting badge"
 	ErrBadgeNotFound                  = "Badge not found"
 	ErrCountingListBadge              = "Error counting list badge"
+	ErrAddingBadgeToUser              = "Error adding badge to user"
+	ErrBadgeCannotBeAddedToUser       = "Error badge cannot be added to user"
+	ErrUserAlreadyHasTheBadge         = "Error user already has the badge"
 
 	ErrGettingBadgeRuleList   = "Error getting list of badge rules"
 	ErrScanningBadgeRule      = "Error scanning badge rule"

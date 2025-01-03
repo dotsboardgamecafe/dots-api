@@ -20,6 +20,8 @@ type OriginUserEnt struct {
 	ID                 int            `db:"id"`
 	UserCode           string         `db:"user_code"`
 	Email              string         `db:"email"`
+	DateOfBirth        sql.NullString `db:"date_of_birth"`
+	Gender             sql.NullString `db:"gender"`
 	UserName           sql.NullString `db:"username"`
 	PhoneNumber        string         `db:"phone_number"`
 	FullName           string         `db:"fullname"`
@@ -39,6 +41,8 @@ type UserEnt struct {
 	ID                 int            `db:"id"`
 	UserCode           string         `db:"user_code"`
 	Email              sql.NullString `db:"email"`
+	DateOfBirth        sql.NullString `db:"date_of_birth"`
+	Gender             sql.NullString `db:"gender"`
 	UserName           sql.NullString `db:"username"`
 	PhoneNumber        string         `db:"phone_number"`
 	FullName           string         `db:"fullname"`
@@ -63,7 +67,7 @@ func (c *Contract) GetAllUsers(db *pgxpool.Pool, ctx context.Context) ([]UserEnt
 	var users []UserEnt
 
 	query := `
-		SELECT id, user_code, email, username, phone_number, fullname, image_url, 
+		SELECT id, user_code, email, date_of_birth, gender, username, phone_number, fullname, image_url, 
 		       latest_point, latest_tier_id, password, x_player, status_verification, 
 		       status, created_date, updated_date, deleted_date 
 		FROM users
@@ -81,6 +85,8 @@ func (c *Contract) GetAllUsers(db *pgxpool.Pool, ctx context.Context) ([]UserEnt
 			&user.ID,
 			&user.UserCode,
 			&user.Email,
+			&user.DateOfBirth,
+			&user.Gender,
 			&user.UserName,
 			&user.PhoneNumber,
 			&user.FullName,
@@ -114,6 +120,8 @@ func (c *Contract) GetUserByEmail(db *pgxpool.Pool, ctx context.Context, email s
 	sql := `SELECT users.id AS id,
 						user_code,
 						email,
+						date_of_birth,
+						gender,
 						username,
 						phone_number,
 						fullname,
@@ -138,6 +146,8 @@ func (c *Contract) GetUserByEmail(db *pgxpool.Pool, ctx context.Context, email s
 		&res.ID,
 		&res.UserCode,
 		&res.Email,
+		&res.DateOfBirth,
+		&res.Gender,
 		&res.UserName,
 		&res.PhoneNumber,
 		&res.FullName,
@@ -172,6 +182,8 @@ func (c *Contract) GetUserByUserCode(db *pgxpool.Pool, ctx context.Context, user
 	sql := `SELECT users.id AS id,
 						user_code,
 						email,
+						date_of_birth,
+						gender,
 						username,
 						phone_number,
 						fullname,
@@ -209,6 +221,8 @@ func (c *Contract) GetUserByUserCode(db *pgxpool.Pool, ctx context.Context, user
 		&res.ID,
 		&res.UserCode,
 		&res.Email,
+		&res.DateOfBirth,
+		&res.Gender,
 		&res.UserName,
 		&res.PhoneNumber,
 		&res.FullName,
@@ -247,6 +261,8 @@ func (c *Contract) GetUserList(db *pgxpool.Pool, ctx context.Context, param requ
 		query = `SELECT users.id AS id,
 						user_code,
 						email,
+						date_of_birth,
+						gender,
 						username,
 						phone_number,
 						fullname,
@@ -345,6 +361,8 @@ func (c *Contract) GetUserList(db *pgxpool.Pool, ctx context.Context, param requ
 			&res.ID,
 			&res.UserCode,
 			&res.Email,
+			&res.DateOfBirth,
+			&res.Gender,
 			&res.UserName,
 			&res.PhoneNumber,
 			&res.FullName,
@@ -371,15 +389,16 @@ func (c *Contract) GetUserList(db *pgxpool.Pool, ctx context.Context, param requ
 	return list, param, nil
 }
 
-func (c *Contract) UpdateUserProfile(db *pgxpool.Pool, ctx context.Context, userCode, fullName, imageURL string, phoneNumber string) error {
+func (c *Contract) UpdateUserProfile(db *pgxpool.Pool, ctx context.Context, userCode, fullName, userName, gender, dateOfBirth, imageURL string, phoneNumber string) error {
 	sql := `
 		UPDATE users
-		SET image_url = $1, fullname = $2, phone_number = $3, updated_date = $4
-		WHERE user_code = $5
+		SET image_url = $1, fullname = $2, username = $3, gender = $4, date_of_birth = $5, phone_number = $6, updated_date = $7
+		WHERE user_code = $8
 	`
 
 	currentTime := time.Now().In(time.UTC)
-	_, err := db.Exec(ctx, sql, imageURL, fullName, phoneNumber, currentTime, userCode)
+
+	_, err := db.Exec(ctx, sql, imageURL, fullName, userName, gender, dateOfBirth, phoneNumber, currentTime, userCode)
 	if err != nil {
 		return c.errHandler("model.UpdateUserProfile", err, utils.ErrUpdatingUserProfile)
 	}
@@ -469,15 +488,15 @@ func (c *Contract) UpdateUserStatus(db *pgxpool.Pool, ctx context.Context, userC
 	return nil
 }
 
-func (c *Contract) UpdateUser(db *pgxpool.Pool, ctx context.Context, userCode, fullName, imageURL, phoneNumber, email, userName, status string) error {
+func (c *Contract) UpdateUser(db *pgxpool.Pool, ctx context.Context, userCode, fullName, dateOfBirth, gender, imageURL, phoneNumber, email, userName, status string) error {
 	sql := `
 		UPDATE users
-		SET image_url = $1, fullname = $2, phone_number = $3, email = $4, username = $5, status = $6, updated_date = $7
-		WHERE user_code = $8
+		SET image_url = $1, fullname = $2, gender = $3, date_of_birth = $4, phone_number = $5, email = $6, username = $7, status = $8, updated_date = $9
+		WHERE user_code = $10
 	`
 
 	currentTime := time.Now().In(time.UTC)
-	_, err := db.Exec(ctx, sql, imageURL, fullName, phoneNumber, email, userName, status, currentTime, userCode)
+	_, err := db.Exec(ctx, sql, imageURL, fullName, gender, dateOfBirth, phoneNumber, email, userName, status, currentTime, userCode)
 	if err != nil {
 		return c.errHandler("model.UpdateUserProfile", err, utils.ErrUpdatingUserProfile)
 	}
@@ -671,4 +690,19 @@ func (c *Contract) GetListUsersByUserId(db *pgxpool.Pool, ctx context.Context) (
 	}
 
 	return list, nil
+}
+
+func (c *Contract) CheckIfUsernameExists(db *pgxpool.Pool, ctx context.Context, username string) error {
+	var exists bool
+
+	err := db.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM users WHERE username = $1)", username).Scan(&exists)
+	if err != nil {
+		return c.errHandler("model.CheckIfUsernameExists", err, utils.ErrCheckingIfUsernameExists)
+	}
+
+	if exists {
+		return c.errHandler("model.CheckIfUsernameExists", errors.New(utils.ErrUsernameHasAlreadyTaken), utils.ErrUsernameHasAlreadyTaken)
+	}
+
+	return nil
 }

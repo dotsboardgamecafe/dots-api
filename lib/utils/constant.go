@@ -2,6 +2,27 @@ package utils
 
 type UserType string
 
+type BadgeCategory string
+
+func (b BadgeCategory) String() string {
+	return string(b)
+}
+
+func (b BadgeCategory) Valid() bool {
+	switch b {
+	case "play":
+		return true
+	case "tournament":
+		return true
+	case "spent":
+		return true
+	case "gift":
+		return true
+	default:
+		return false
+	}
+}
+
 var (
 	DATE_TIME_FORMAT = "2006-01-02 15:04:05"
 	DATE_FORMAT      = "2006-01-02"
@@ -62,6 +83,12 @@ var (
 	RoomReminder        = "room_reminder"
 	TournamentReminder  = "tournament_reminder"
 	Reward              = "reward"
+
+	// Badge Category
+	BadgeCategoryPlay       BadgeCategory = "play"
+	BadgeCategoryTournament BadgeCategory = "tournament"
+	BadgeCategorySpent      BadgeCategory = "spent"
+	BadgeCategoryGift       BadgeCategory = "gift"
 
 	// Badge Rule
 	TotalSpend                = "total_spend"
