@@ -28,20 +28,30 @@ func (c *Contract) GetUserFavouriteGames(db *pgxpool.Pool, ctx context.Context, 
 		totalData  int
 		// where      []string
 
-		query = `SELECT
+		query = `
+			WITH 
+			unique_participants AS (
+					SELECT DISTINCT r.game_id, rp.user_id, rp.created_date
+					FROM rooms r 
+					INNER JOIN rooms_participants rp ON r.id = rp.room_id AND rp.status = 'active'
+					UNION
+					SELECT DISTINCT t.game_id, tp.user_id, tp.created_date
+					FROM tournaments t
+					INNER JOIN tournament_participants tp ON t.id = tp.tournament_id AND tp.status = 'active'
+					UNION
+					SELECT DISTINCT game_id, user_id, created_date FROM users_game_collections
+			)
+			SELECT
 					u.id AS user_id,
 					u.user_code,
 					gc.category_name AS game_category_name,
 					gc.category_description,
 					gc.category_image_url,
-					COUNT(gc.id) AS total_play
-				FROM games g
-				JOIN games_categories gc ON gc.game_id = g.id
-				LEFT JOIN rooms r ON r.game_id = g.id
-				LEFT JOIN rooms_participants rp ON rp.room_id = r.id AND rp.status = 'active'
-				LEFT JOIN tournaments t ON t.game_id = g.id
-				LEFT JOIN tournament_participants tp ON tp.tournament_id = t.id AND tp.status = 'active'
-				LEFT JOIN users u ON rp.user_id = u.id OR tp.user_id = u.id
+					COUNT(up.game_id) AS total_play
+				FROM unique_participants up
+				LEFT JOIN games g ON g.id = up.game_id
+				LEFT JOIN games_categories gc ON gc.game_id = g.id
+				LEFT JOIN users u ON u.id = up.user_id
 				WHERE u.user_code = $1
 				GROUP BY
 					u.id,
