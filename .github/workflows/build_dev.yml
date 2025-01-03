@@ -47,4 +47,4 @@ jobs:
             docker login
             sed -i~ "/^API_IMAGE=/s/=.*/=dotsboardgamecafe\/dots-app:api-build-${{github.run_number}}/g" .env
             cat .env
-            docker-compose up -d
+            docker compose up -d
