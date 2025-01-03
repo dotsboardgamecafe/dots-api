@@ -139,11 +139,17 @@ func (h *Contract) CheckUserBadge(ctx context.Context, badgeType string, userId 
 					return h.errHandler("model.CheckBadge", err, utils.ErrUnmarshallingBadgeRule)
 				}
 
-				totalSpentAmount, err := m.GetTotalInvoiceAmountByUserID(h.DB, ctx, userId)
+				totalClaimedInvoiceAmount, err := m.GetTotalInvoiceAmountByUserID(h.DB, ctx, userId)
 				if err != nil {
 					return h.errHandler("model.CheckBadge", err, utils.ErrGettingTotalInvoiceAmount)
 				}
 
+				totalBookingAmount, err := m.GetTotalBookingAmountByUserID(h.DB, ctx, userId)
+				if err != nil {
+					return h.errHandler("model.CheckBadge", err, utils.ErrGettingTotalBookingAmount)
+				}
+
+				totalSpentAmount := totalBookingAmount + totalClaimedInvoiceAmount
 				if requiredSpendAmount <= totalSpentAmount {
 					badgeRules = append(badgeRules, true)
 				} else {
