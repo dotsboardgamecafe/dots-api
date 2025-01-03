@@ -33,7 +33,7 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: mdzk14/dots-app:api-build-${{ github.run_number }}
+          tags: dotsboardgamecafe/dots-app:api-build-${{ github.run_number }}
       - 
         name: executing remote ssh commands using ssh key
         uses: appleboy/ssh-action@v1.0.3
@@ -45,6 +45,6 @@ jobs:
           script: |
             cd dots-api
             docker login
-            sed -i~ "/^API_IMAGE=/s/=.*/=mdzk14\/dots-app:api-build-${{github.run_number}}/g" .env
+            sed -i~ "/^API_IMAGE=/s/=.*/=dotsboardgamecafe\/dots-app:api-build-${{github.run_number}}/g" .env
             cat .env
             docker-compose up -d
