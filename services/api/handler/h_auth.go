@@ -43,6 +43,8 @@ func (h *Contract) LoginUserAct(w http.ResponseWriter, r *http.Request) {
 		res = response.LoginUserRes{
 			Token:       jwtToken,
 			ImageURL:    dataUser.ImageURL.String,
+			DateOfBirth: dataUser.DateOfBirth.String,
+			Gender:      dataUser.Gender.String,
 			UserCode:    dataUser.UserCode,
 			FullName:    dataUser.FullName,
 			PhoneNumber: dataUser.PhoneNumber,
@@ -111,7 +113,7 @@ func (h *Contract) RegisterUserAct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userCode, email, err := m.RegisterUser(h.DB, ctx, req.Fullname, req.Email, req.PhoneNumber, req.ConfirmPassword, req.Username, xPlayer)
+	userCode, email, err := m.RegisterUser(h.DB, ctx, req.Fullname, req.DateOfBirth, req.Gender, req.Email, req.PhoneNumber, req.ConfirmPassword, req.Username, xPlayer)
 	if err != nil {
 		h.SendBadRequest(w, err.Error())
 		return

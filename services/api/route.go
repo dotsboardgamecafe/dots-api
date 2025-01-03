@@ -77,6 +77,9 @@ func AppSubsRoute(r chi.Router, app *bootstrap.App) {
 		//User history game
 		r.With(app.VerifyAccessRoute).Get("/{code}/history-games", nrWrap(h.GetUserGameHistoryAct, app.NewRelic))
 
+		//User Profile By Code
+		r.With(app.VerifyAccessRoute).Get("/{code}/profile", nrWrap(h.GetUserProfileByCodeAct, app.NewRelic))
+
 		r.With(app.VerifyAccessRoute).Put("/update-password", nrWrap(h.UpdatePasswordUserAct, app.NewRelic))
 
 		// User Profile

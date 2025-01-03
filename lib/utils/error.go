@@ -64,6 +64,8 @@ var (
 	ErrGettingUserLatestPoint         = "Error getting user latest point"
 	ErrUpdatingUserStatus             = "Error updating user status"
 	ErrDeletingAdmin                  = "Error deleting admin by code"
+	ErrCheckingIfUsernameExists       = "Error checking if username exists"
+	ErrUsernameHasAlreadyTaken        = "Username has already taken"
 
 	// Error for module user address
 	ErrGettingUserAddresses      = "Error getting user addresses by user ID"

@@ -7,6 +7,8 @@ type LoginUserReq struct {
 
 type RegisterUserReq struct {
 	Fullname        string `json:"fullname" validate:"required"`
+	DateOfBirth     string `json:"date_of_birth" validate:"required,datetime=2006-01-02"`
+	Gender          string `json:"gender" validate:"required,oneof=male female"`
 	Email           string `json:"email" validate:"required"`
 	PhoneNumber     string `json:"phone_number" validate:"required"`
 	Password        string `json:"password" validate:"required"`
