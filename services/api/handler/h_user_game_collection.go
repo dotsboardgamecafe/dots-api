@@ -2,10 +2,12 @@ package handler
 
 import (
 	"context"
+	"dots-api/lib/rabbit"
 	"dots-api/lib/utils"
 	"dots-api/services/api/model"
 	"dots-api/services/api/request"
 	"dots-api/services/api/response"
+	"log"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -81,6 +83,22 @@ func (h *Contract) AddUserGameCollectionAct(w http.ResponseWriter, r *http.Reque
 
 	err = m.AddUserGameCollections(h.DB, ctx, userID, game.Id)
 	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		return
+	}
+
+	// Publisher badge
+	queueData := rabbit.QueueDataPayload(
+		rabbit.QueueUserBadge,
+		rabbit.QueueUserBadgeReq(
+			utils.PlayingGames,
+			userID,
+		),
+	)
+	queueHost := m.Config.GetString("queue.rabbitmq.host")
+	err = rabbit.PublishQueue(ctx, queueHost, queueData)
+	if err != nil {
+		log.Printf("Error : %s", err)
 		h.SendBadRequest(w, err.Error())
 		return
 	}
