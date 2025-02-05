@@ -420,11 +420,13 @@ func (h *Contract) UpdateBadgeAct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Delete Badge Rule
-	err = m.DeleteBadgeRule(tx, ctx, badgeID)
-	if err != nil {
-		h.SendBadRequest(w, err.Error())
-		return
+	if len(req.BadgeRule) != 0 {
+		// Delete Badge Rule
+		err = m.DeleteBadgeRule(tx, ctx, badgeID)
+		if err != nil {
+			h.SendBadRequest(w, err.Error())
+			return
+		}
 	}
 
 	isGift = req.BadgeCategory == utils.BadgeCategoryGift.String()
