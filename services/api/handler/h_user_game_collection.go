@@ -87,21 +87,42 @@ func (h *Contract) AddUserGameCollectionAct(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Publisher badge
-	queueData := rabbit.QueueDataPayload(
-		rabbit.QueueUserBadge,
-		rabbit.QueueUserBadgeReq(
-			utils.PlayingGames,
-			userID,
-		),
-	)
-	queueHost := m.Config.GetString("queue.rabbitmq.host")
-	err = rabbit.PublishQueue(ctx, queueHost, queueData)
+	// Start a transaction
+	tx, err := h.DB.Begin(ctx)
 	if err != nil {
-		log.Printf("Error : %s", err)
 		h.SendBadRequest(w, err.Error())
 		return
 	}
+
+	defer func() {
+		if err != nil {
+			tx.Rollback(ctx)
+		}
+		tx.Commit(ctx)
+	}()
+
+	// Add user point that count as activity, smh
+	err = m.AddUserPoint(tx, ctx, userID, "game", game.GameCode, 0)
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		return
+	}
+
+	go func(ctx context.Context, userID int64) {
+		// Publisher badge
+		queueData := rabbit.QueueDataPayload(
+			rabbit.QueueUserBadge,
+			rabbit.QueueUserBadgeReq(
+				utils.PlayingGames,
+				userID,
+			),
+		)
+		queueHost := m.Config.GetString("queue.rabbitmq.host")
+		err = rabbit.PublishQueue(ctx, queueHost, queueData)
+		if err != nil {
+			log.Printf("Error : %s", err)
+		}
+	}(ctx, userID)
 
 	h.SendSuccess(
 		w,
