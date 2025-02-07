@@ -18,7 +18,7 @@ type TournamentReq struct {
 	StartTime       string   `json:"start_time"`
 	EndTime         string   `json:"end_time"`
 	PlayerSlot      int64    `json:"player_slot"`
-	BookingPrice    float64  `json:"booking_price"`
+	BookingPrice    float64  `json:"booking_price" validate:"gte=0"`
 	BadgeCodes      []string `json:"badge_codes"`
 	PrizesImgUrl    string   `json:"prizes_img_url"`
 	Status          string   `json:"status" validate:"max=10"`

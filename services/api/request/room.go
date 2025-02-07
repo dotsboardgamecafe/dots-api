@@ -24,7 +24,7 @@ type (
 		StartTime          string  `json:"start_time" validate:"required"`
 		EndTime            string  `json:"end_time" validate:"required"`
 		MaximumParticipant int     `json:"maximum_participant" validate:"required"`
-		BookingPrice       float64 `json:"booking_price" validate:"required,min=10000"`
+		BookingPrice       float64 `json:"booking_price" validate:"gte=0"`
 		RewardPoint        int     `json:"reward_point"`
 		InstagramLink      string  `json:"instagram_link" validate:"max=500"`
 		ImageURL           string  `json:"image_url" validate:"max=500"`
