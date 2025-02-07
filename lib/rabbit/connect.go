@@ -1,7 +1,6 @@
 package rabbit
 
 import (
-	"dots-api/lib/utils"
 	"log"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -9,7 +8,7 @@ import (
 
 func handleError(err error, msg string) {
 	if err != nil {
-		log.Fatalf("%s: %s", msg, err)
+		log.Fatalf("%s: %v", msg, err)
 	}
 }
 
@@ -21,10 +20,18 @@ func Connect(host string) (*amqp.Connection, *amqp.Channel, error) {
 	)
 
 	conn, err = amqp.Dial(host)
-	handleError(err, utils.ErrConnectAMQP)
+	// handleError(err, utils.ErrConnectAMQP)
+
+	if err != nil {
+		return nil, nil, err
+	}
 
 	amqpChannel, err = conn.Channel()
-	handleError(err, utils.ErrCreateChannelAMQP)
+	// handleError(err, utils.ErrCreateChannelAMQP)
+
+	if err != nil {
+		return conn, nil, err
+	}
 
 	return conn, amqpChannel, err
 }
