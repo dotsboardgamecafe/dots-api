@@ -452,7 +452,7 @@ func (c *Contract) RequestVerifyEmailUser(db *pgxpool.Pool, ctx context.Context,
 
 	switch types {
 	case utils.VerifyRegistration:
-		link := c.Config.GetString("web_url") + utils.VerifyTokenRoute + token + utils.TypeRoute + types
+		link := c.Config.GetString("web_url") + utils.VerifyTokenRoute + token + utils.TypeRoute + types + "&email=" + email
 
 		err = mailContract.SendMail(mail.UserVerifyEmail, mail.MailSubj[mail.UserVerifyEmail], email, mail.EmailData{Name: userData.FullName, Email: email, Link: link})
 		if err != nil {
