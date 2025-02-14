@@ -46,6 +46,8 @@ type UserProfileRes struct {
 
 type PlayerActivitiesRes struct {
 	UserName         string `json:"username"`
+	UserCode         string `json:"user_code,omitempty"`
+	UserImageUrl     string `json:"user_image_url,omitempty"`
 	TitleDescription string `json:"title_description"`
 	GameImgUrl       string `json:"game_image_url,omitempty"`
 	GameName         string `json:"game_name,omitempty"`

@@ -433,14 +433,16 @@ func (h *Contract) GetAllPlayerActivities(w http.ResponseWriter, r *http.Request
 	// Populate response
 	for _, v := range data {
 		res = append(res, response.PlayerActivitiesRes{
-			DataSource:  v.DataSource,
-			SourceCode:  v.SourceCode,
-			UserName:    v.UserName,
-			GameImgUrl:  v.GameImgUrl,
-			GameName:    v.GameName,
-			GameCode:    v.GameCode,
-			Point:       v.Point,
-			CreatedDate: v.CreatedDate.Format(time.RFC3339),
+			DataSource:   v.DataSource,
+			SourceCode:   v.SourceCode,
+			UserName:     v.UserName,
+			UserCode:     v.UserCode,
+			UserImageUrl: v.UserImageUrl,
+			GameImgUrl:   v.GameImgUrl,
+			GameName:     v.GameName,
+			GameCode:     v.GameCode,
+			Point:        v.Point,
+			CreatedDate:  v.CreatedDate.Format(time.RFC3339),
 		})
 	}
 

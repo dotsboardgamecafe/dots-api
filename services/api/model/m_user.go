@@ -523,22 +523,26 @@ func (c *Contract) GetPlayerAndOtherActivities(db *pgxpool.Pool, ctx context.Con
 		err  error
 		list []UserPointEnt
 
-		query = `SELECT
+		query = `
+		SELECT
     		u.id, 
-				COALESCE(u.username, '') AS username,
-				data_source, 
-				source_code,
-				g.name AS game_name,
-				g.game_code,
+			u.user_code,
+			u.image_url,
+			u.username,
+			data_source, 
+			source_code,
+			g.name AS game_name,
+			g.game_code,
     		g.image_url AS game_url,
-				point, 
-				up.created_date
-    	FROM users_points up JOIN users u ON up.user_id = u.id
-				LEFT JOIN tournaments t ON t.tournament_code = up.source_code
-				LEFT JOIN rooms r ON r.room_code = up.source_code 
-				LEFT JOIN users_game_collections ugc ON ugc.user_id = up.user_id 
-					AND ugc.game_id = (SELECT id FROM games WHERE game_code = up.source_code)
-				JOIN games g ON g.id = r.game_id OR g.id = t.game_id OR g.id = ugc.game_id 
+			point, 
+			up.created_date
+    	FROM users_points up 
+			JOIN users u ON up.user_id = u.id AND deleted_date IS NULL
+			LEFT JOIN tournaments t ON t.tournament_code = up.source_code
+			LEFT JOIN rooms r ON r.room_code = up.source_code 
+			LEFT JOIN users_game_collections ugc ON ugc.user_id = up.user_id 
+				AND ugc.game_id = (SELECT id FROM games WHERE game_code = up.source_code)
+			JOIN games g ON g.id = r.game_id OR g.id = t.game_id OR g.id = ugc.game_id 
     	WHERE up.data_source != 'redeem'
 			ORDER BY up.id DESC
 			LIMIT 5;`
@@ -552,7 +556,10 @@ func (c *Contract) GetPlayerAndOtherActivities(db *pgxpool.Pool, ctx context.Con
 	defer rows.Close()
 	for rows.Next() {
 		var data UserPointEnt
-		err = rows.Scan(&data.Id,
+		err = rows.Scan(
+			&data.Id,
+			&data.UserCode,
+			&data.UserImageUrl,
 			&data.UserName,
 			&data.DataSource,
 			&data.SourceCode,
@@ -577,7 +584,7 @@ func (c *Contract) GetUserPointActivities(db *pgxpool.Pool, ctx context.Context,
 		list []UserPointEnt
 
 		query = `SELECT
-    		u.id, 
+    		u.id,
 				COALESCE(u.username, '') AS username,
 				CASE
 					-- Room type (normal and special_event)
@@ -604,6 +611,12 @@ func (c *Contract) GetUserPointActivities(db *pgxpool.Pool, ctx context.Context,
 						FROM badges
 						WHERE badge_code = up.source_code
 					)
+					-- Badges
+					WHEN (up.data_source = 'game') THEN (
+						SELECT CONCAT('Claimed: ', games."name") AS info
+						FROM games
+						WHERE game_code = up.source_code
+					)
 				END AS title_description,
 				data_source, 
 				source_code,
@@ -623,7 +636,8 @@ func (c *Contract) GetUserPointActivities(db *pgxpool.Pool, ctx context.Context,
 	defer rows.Close()
 	for rows.Next() {
 		var data UserPointEnt
-		err = rows.Scan(&data.Id,
+		err = rows.Scan(
+			&data.Id,
 			&data.UserName,
 			&data.TitleDescription,
 			&data.DataSource,

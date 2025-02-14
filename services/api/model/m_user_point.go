@@ -14,6 +14,8 @@ import (
 type UserPointEnt struct {
 	Id               int64     `db:"id"`
 	UserId           int64     `db:"user_id"`
+	UserCode         string    `db:"user_code"`
+	UserImageUrl     string    `db:"user_image_url"`
 	UserName         string    `db:"user_name"`
 	DataSource       string    `db:"data_source"`
 	SourceCode       string    `db:"source_code"`
