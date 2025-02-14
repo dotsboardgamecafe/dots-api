@@ -586,7 +586,7 @@ func (c *Contract) GetUserPointActivities(db *pgxpool.Pool, ctx context.Context,
 		query = `SELECT
     		u.id,
 				COALESCE(u.username, '') AS username,
-				CASE
+				COALESCE(CASE
 					-- Room type (normal and special_event)
 					WHEN (up.data_source = 'room') THEN (
 						SELECT CONCAT('Joined: ', rooms."name") AS info
@@ -617,7 +617,7 @@ func (c *Contract) GetUserPointActivities(db *pgxpool.Pool, ctx context.Context,
 						FROM games
 						WHERE game_code = up.source_code
 					)
-				END AS title_description,
+				END, '') AS title_description,
 				data_source, 
 				source_code,
 				point, 
