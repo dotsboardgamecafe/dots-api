@@ -20,9 +20,9 @@ type UserPointEnt struct {
 	DataSource       string    `db:"data_source"`
 	SourceCode       string    `db:"source_code"`
 	TitleDescription string    `db:"title_description"`
-	GameName         string    `db:"game_name"`
-	GameCode         string    `db:"game_code"`
-	GameImgUrl       string    `db:"game_img_url"`
+	ItemName         string    `db:"item_name"`
+	ItemCode         string    `db:"item_code"`
+	ItemImgUrl       string    `db:"item_img_url"`
 	Point            int       `db:"point"`
 	CreatedDate      time.Time `db:"created_date"`
 }
@@ -93,6 +93,20 @@ func (c *Contract) AddUserPoint(tx pgx.Tx, ctx context.Context, userId int64, da
 					return fmt.Errorf("error adding notification: %v", err)
 				}
 			}
+		}
+
+		sql := `INSERT INTO users_points(
+			user_id,
+			data_source,
+			source_code,
+			point,
+			created_date
+		)
+		VALUES($1, $2, $3, $4, $5);`
+
+		_, err = tx.Exec(ctx, sql, userId, utils.UserPointType["TIER"], finalTier.TierCode, 0, time.Now().In(time.UTC))
+		if err != nil {
+			return c.errHandler("model.AddUserPoint", err, utils.ErrAddUserPoint)
 		}
 	} else {
 		sqlUpdatePointAndTier := `UPDATE users SET latest_point = $1 WHERE id = $2;`

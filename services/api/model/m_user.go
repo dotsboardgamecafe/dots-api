@@ -531,19 +531,21 @@ func (c *Contract) GetPlayerAndOtherActivities(db *pgxpool.Pool, ctx context.Con
 			u.username,
 			data_source, 
 			source_code,
-			g.name AS game_name,
-			g.game_code,
-    		g.image_url AS game_url,
+			COALESCE(t.name, r.name, b.name, tiers.name, g.name, '') AS item_name,
+			COALESCE(t.tournament_code, r.room_code, b.badge_code, tiers.tier_code, g.game_code, '') AS item_code,
+    		COALESCE(t.image_url, r.image_url, b.image_url, g.image_url, '') AS item_url,
 			point, 
 			up.created_date
     	FROM users_points up 
 			JOIN users u ON up.user_id = u.id AND deleted_date IS NULL
 			LEFT JOIN tournaments t ON t.tournament_code = up.source_code
-			LEFT JOIN rooms r ON r.room_code = up.source_code 
+			LEFT JOIN rooms r ON r.room_code = up.source_code
+			LEFT JOIN badges b ON b.badge_code = up.source_code
+			LEFT JOIN tiers ON tiers.tier_code = up.source_code
 			LEFT JOIN users_game_collections ugc ON ugc.user_id = up.user_id 
 				AND ugc.game_id = (SELECT id FROM games WHERE game_code = up.source_code)
-			JOIN games g ON g.id = r.game_id OR g.id = t.game_id OR g.id = ugc.game_id 
-    	WHERE up.data_source != 'redeem'
+			LEFT JOIN games g ON g.id = r.game_id OR g.id = t.game_id OR g.id = ugc.game_id 
+    	WHERE up.data_source IN ('room', 'tournament', 'badge', 'tier', 'game')
 			ORDER BY up.id DESC
 			LIMIT 5;`
 	)
@@ -563,9 +565,9 @@ func (c *Contract) GetPlayerAndOtherActivities(db *pgxpool.Pool, ctx context.Con
 			&data.UserName,
 			&data.DataSource,
 			&data.SourceCode,
-			&data.GameName,
-			&data.GameCode,
-			&data.GameImgUrl,
+			&data.ItemName,
+			&data.ItemCode,
+			&data.ItemImgUrl,
 			&data.Point,
 			&data.CreatedDate,
 		)
@@ -593,9 +595,33 @@ func (c *Contract) GetUserPointActivities(db *pgxpool.Pool, ctx context.Context,
 						FROM rooms
 						WHERE room_code = up.source_code
 					)
-					-- Tournament type
+					-- Room Paid
+					WHEN (up.data_source = 'room_paid') THEN (
+						SELECT CONCAT('Paid: ', r."name") AS info
+						FROM users_transactions as ut
+						JOIN rooms as r ON r.room_code = ut.source_code
+						WHERE 
+							ut.user_id = up.user_id
+							AND ut.source_code = up.source_code
+					)
+					-- Tournament Type
 					WHEN (up.data_source = 'tournament') THEN (
 						SELECT CONCAT('Joined: ', tournaments."name") AS info
+						FROM tournaments
+						WHERE tournament_code = up.source_code
+					)
+					-- Tournament Paid
+					WHEN (up.data_source = 'tournament_paid') THEN (
+						SELECT CONCAT('Paid: ', r."name") AS info
+						FROM users_transactions as ut
+						JOIN tournaments as r ON r.tournament_code = ut.source_code
+						WHERE 
+							ut.user_id = up.user_id
+							AND ut.source_code = up.source_code
+					)
+					-- Tournament Participant
+					WHEN (up.data_source = 'tournament_play') THEN (
+						SELECT CONCAT('Participated: ', tournaments."name") AS info
 						FROM tournaments
 						WHERE tournament_code = up.source_code
 					)
@@ -611,9 +637,9 @@ func (c *Contract) GetUserPointActivities(db *pgxpool.Pool, ctx context.Context,
 						FROM badges
 						WHERE badge_code = up.source_code
 					)
-					-- Badges
+					-- Game Collections
 					WHEN (up.data_source = 'game') THEN (
-						SELECT CONCAT('Claimed: ', games."name") AS info
+						SELECT CONCAT('Collected: ', games."name") AS info
 						FROM games
 						WHERE game_code = up.source_code
 					)
@@ -623,7 +649,7 @@ func (c *Contract) GetUserPointActivities(db *pgxpool.Pool, ctx context.Context,
 				point, 
 				up.created_date
     	FROM users_points up JOIN users u ON up.user_id = u.id
-    	WHERE u.user_code = $1
+    	WHERE u.user_code = $1 AND up.data_source != 'tier'
 			ORDER BY up.id DESC
 			LIMIT 5;`
 	)

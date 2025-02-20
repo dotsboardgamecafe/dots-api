@@ -682,7 +682,7 @@ func (h *Contract) SetWinnerTournamentAct(w http.ResponseWriter, r *http.Request
 			}
 
 			// Add user point for all the winners
-			err = m.AddUserPoint(tx, ctx, userId, utils.UserPointType["TOURNAMENT_TYPE"], tournamentCode, int(badgeData.VPPoint))
+			err = m.AddUserPoint(tx, ctx, userId, utils.UserPointType["TOURNAMENT_TYPE_PLAY"], tournamentCode, int(badgeData.VPPoint))
 			if err != nil {
 				h.SendBadRequest(w, err.Error())
 				return
@@ -710,7 +710,7 @@ func (h *Contract) SetWinnerTournamentAct(w http.ResponseWriter, r *http.Request
 				return
 			}
 
-			err = m.AddUserPoint(tx, ctx, userId, utils.UserPointType["TOURNAMENT_TYPE"], tournamentCode, int(tournamentParticipantPoint))
+			err = m.AddUserPoint(tx, ctx, userId, utils.UserPointType["TOURNAMENT_TYPE_PLAY"], tournamentCode, int(tournamentParticipantPoint))
 			if err != nil {
 				h.SendBadRequest(w, err.Error())
 				return
