@@ -7,8 +7,10 @@ import (
 	"dots-api/services/api/model"
 	"dots-api/services/api/request"
 	"dots-api/services/api/response"
+	"fmt"
 	"net/http"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -432,17 +434,24 @@ func (h *Contract) GetAllPlayerActivities(w http.ResponseWriter, r *http.Request
 
 	// Populate response
 	for _, v := range data {
+		if userPointType, ok := utils.GetUserPointTypeByValue(v.DataSource); ok {
+			v.TitleDescription = strings.Replace(utils.UserPointTypeText[userPointType], "[username]", v.UserName, 1)
+			v.TitleDescription = strings.Replace(v.TitleDescription, "[name]", v.ItemName, 1)
+			v.TitleDescription = strings.Replace(v.TitleDescription, "[vp]", fmt.Sprint(v.Point), 1)
+		}
+
 		res = append(res, response.PlayerActivitiesRes{
-			DataSource:   v.DataSource,
-			SourceCode:   v.SourceCode,
-			UserName:     v.UserName,
-			UserCode:     v.UserCode,
-			UserImageUrl: v.UserImageUrl,
-			GameImgUrl:   v.GameImgUrl,
-			GameName:     v.GameName,
-			GameCode:     v.GameCode,
-			Point:        v.Point,
-			CreatedDate:  v.CreatedDate.Format(time.RFC3339),
+			DataSource:       v.DataSource,
+			TitleDescription: v.TitleDescription,
+			SourceCode:       v.SourceCode,
+			UserName:         v.UserName,
+			UserCode:         v.UserCode,
+			UserImageUrl:     v.UserImageUrl,
+			ItemName:         v.ItemName,
+			ItemCode:         v.ItemCode,
+			ItemImgUrl:       v.ItemImgUrl,
+			Point:            v.Point,
+			CreatedDate:      v.CreatedDate.Format(time.RFC3339),
 		})
 	}
 
