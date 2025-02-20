@@ -53,7 +53,7 @@ func (c *Contract) GetHallOfFameList(db *pgxpool.Pool, ctx context.Context, para
 			JOIN tournaments t ON t.id = tp.tournament_id
 			JOIN games g ON t.game_id = g.id
 			JOIN cafes c ON c.id = g.cafe_id
-		WHERE tp.position = 1
+		WHERE tp.position = 1 
 		`
 	)
 
@@ -143,6 +143,7 @@ func (c *Contract) GetUniqueGame(db *pgxpool.Pool, ctx context.Context, param re
 		where = append(where, fmt.Sprintf("LOWER(c.city) = $%d", len(paramQuery)))
 	}
 
+	where = append(where, "u.deleted_date IS NULL")
 	if len(where) > 0 {
 		query += " WHERE " + strings.Join(where, " AND ")
 	}
@@ -242,8 +243,15 @@ func (c *Contract) GetMostVP(db *pgxpool.Pool, ctx context.Context, param reques
 		queryGetTournamentTotalPoint += " AND " + strings.Join(orWhere, " AND ")
 	}
 
-	query += ` JOIN (` + queryGetRoomTotalPoint + " GROUP BY up.user_id UNION ALL " + queryGetTournamentTotalPoint + " GROUP BY up.user_id UNION ALL " + queryGetNonGameTotalPoint + " GROUP BY up.user_id " +
-		` ) AS tp ON u.id = tp.user_id GROUP BY u.id`
+	query += fmt.Sprintf(`
+		JOIN (
+			%s GROUP BY up.user_id 
+			UNION ALL %s GROUP BY up.user_id 
+			UNION ALL %s GROUP BY up.user_id
+		) AS up ON u.id = up.user_id
+		WHERE u.deleted_date IS NULL
+		GROUP BY u.id
+	`, queryGetRoomTotalPoint, queryGetTournamentTotalPoint, queryGetNonGameTotalPoint)
 
 	// Limit
 	paramQuery = append(paramQuery, param.Limit)
@@ -288,10 +296,12 @@ func generateFilterQueryHallOfFame(param request.HallOfFameParam, query string) 
 	if param.Year > 0 {
 		var orWhere []string
 		paramQuery = append(paramQuery, param.Year)
-		orWhere = append(orWhere, fmt.Sprintf("EXTRACT('year' FROM t.created_date) = $%d", len(paramQuery)))
+		orWhere = append(orWhere, fmt.Sprintf("EXTRACT('year' FROM t.start_date) = $%d", len(paramQuery)))
+		orWhere = append(orWhere, fmt.Sprintf("EXTRACT('year' FROM t.end_date) = $%d", len(paramQuery)))
 		where = append(where, strings.Join(orWhere, " AND "))
 	}
 
+	where = append(where, "u.deleted_date IS NULL")
 	// Append All Where Conditions
 	if len(where) > 0 {
 		query += " AND " + strings.Join(where, " AND ")
