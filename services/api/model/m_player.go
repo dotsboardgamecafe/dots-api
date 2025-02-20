@@ -222,10 +222,10 @@ func (c *Contract) GetMostVP(db *pgxpool.Pool, ctx context.Context, param reques
 		var orWhere []string
 		paramQuery = append(paramQuery, param.Month)
 
-		orWhere = append(orWhere, fmt.Sprintf("EXTRACT('month' FROM up.created_date) = $%d", len(paramQuery)))
+		orWhere = append(orWhere, fmt.Sprintf("EXTRACT('month' FROM up.created_date) <= $%d", len(paramQuery)))
 
 		paramQuery = append(paramQuery, param.Year)
-		orWhere = append(orWhere, fmt.Sprintf("EXTRACT('year' FROM up.created_date) = $%d", len(paramQuery)))
+		orWhere = append(orWhere, fmt.Sprintf("EXTRACT('year' FROM up.created_date) <= $%d", len(paramQuery)))
 
 		queryGetRoomTotalPoint += " AND " + strings.Join(orWhere, " AND ")
 		queryGetTournamentTotalPoint += " AND " + strings.Join(orWhere, " AND ")
@@ -248,7 +248,7 @@ func (c *Contract) GetMostVP(db *pgxpool.Pool, ctx context.Context, param reques
 			%s GROUP BY up.user_id 
 			UNION ALL %s GROUP BY up.user_id 
 			UNION ALL %s GROUP BY up.user_id
-		) AS up ON u.id = up.user_id
+		) AS tp ON u.id = tp.user_id
 		WHERE u.deleted_date IS NULL
 		GROUP BY u.id
 	`, queryGetRoomTotalPoint, queryGetTournamentTotalPoint, queryGetNonGameTotalPoint)
