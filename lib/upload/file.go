@@ -67,7 +67,20 @@ func (fu Info) MultipartHandler(w http.ResponseWriter, r *http.Request, key stri
 	if contentTypeFileHeader == ContentTypePDF {
 		mime = ContentTypePDF
 	}
-	ext := strings.Split(mime, "/")[1]
+
+	// Check if it's a CSV file based on filename extension
+	ext := ""
+	if strings.HasSuffix(strings.ToLower(multipartFileHeader.Filename), ".csv") {
+		ext = "csv"
+		mime = "text/csv"
+	} else {
+		// For other file types, use the MIME type detection
+		ext = strings.Split(mime, "/")[1]
+		// Clean up the extension if it contains parameters
+		if idx := strings.Index(ext, ";"); idx > 0 {
+			ext = ext[:idx]
+		}
+	}
 
 	// Check content type allowed
 	if !utils.StringContainsArray(AllowedExt, ext) {
