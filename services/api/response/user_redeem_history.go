@@ -14,6 +14,9 @@ type UserReedemHistoryRes struct {
 }
 
 type UserClaimHistoryRes struct {
+	UserCode      string                 `json:"user_code,omitempty"`
+	UserName      string                 `json:"username,omitempty"`
+	FullName      string                 `json:"full_name,omitempty"`
 	InvoiceCode   string                 `json:"invoice_code,omitempty"`
 	InvoiceAmount int                    `json:"invoice_amount,omitempty"`
 	InvoiceItems  []model.UserOrderItems `json:"invoice_items"`

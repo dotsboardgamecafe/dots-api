@@ -255,6 +255,7 @@ func AppSubsRoute(r chi.Router, app *bootstrap.App) {
 	// CMS Management for Invoice Redemption (Histories & Redeem)
 	r.Route("/invoices", func(r chi.Router) {
 		r.Use(app.VerifyJwtToken)
+		r.With(app.VerifyAccessRoute).Get("/history", nrWrap(h.GetAllInvoicesClaimedHistory, app.NewRelic))
 		r.With(app.VerifyAccessRoute).Get("/{user_code}/history", nrWrap(h.GetInvoicesClaimedHistory, app.NewRelic))
 		r.With(app.VerifyAccessRoute).Post("/{user_code}/claim", nrWrap(h.Claim, app.NewRelic))
 	})

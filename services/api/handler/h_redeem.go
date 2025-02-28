@@ -183,6 +183,45 @@ CMS SIDE
 - Listing all claimed invoices
 - Claim an Invoice
 */
+func (h *Contract) GetAllInvoicesClaimedHistory(w http.ResponseWriter, r *http.Request) {
+	var (
+		err   error
+		ctx   = context.TODO()
+		m     = model.Contract{App: h.App}
+		res   = make([]response.UserClaimHistoryRes, 0)
+		param = request.UserClaimedHistoryParam{}
+	)
+
+	// Define urlQuery and Parse
+	err = param.ParseUserRedeemHistory(r.URL.Query())
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		return
+	}
+
+	data, param, err := m.GetAllClaimedInvoiceHistories(h.DB, ctx, param)
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		return
+	}
+
+	// Populate response
+	for _, v := range data {
+		res = append(res, response.UserClaimHistoryRes{
+			UserCode:      v.UserCode,
+			UserName:      v.UserName,
+			FullName:      v.FullName,
+			InvoiceCode:   fmt.Sprintf("#%s", v.InvoiceCode),
+			InvoiceAmount: v.InvoiceAmount,
+			InvoiceItems:  v.ParseInvoiceInformation().OrderItems,
+			ClaimedTime:   v.CreatedDate.Format(utils.DATE_TIME_FORMAT),
+			ClaimedDate:   v.CreatedDate.Format(utils.DATE_DAY_FORMAT),
+		})
+	}
+
+	h.SendSuccess(w, res, param)
+}
+
 func (h *Contract) GetInvoicesClaimedHistory(w http.ResponseWriter, r *http.Request) {
 	var (
 		err      error
