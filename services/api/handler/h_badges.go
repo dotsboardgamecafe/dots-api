@@ -4,6 +4,7 @@ import (
 	"context"
 	"dots-api/bootstrap"
 	"dots-api/lib/rabbit"
+	"dots-api/lib/upload"
 	"dots-api/lib/utils"
 	"dots-api/services/api/model"
 	"dots-api/services/api/request"
@@ -11,6 +12,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -633,6 +635,115 @@ func (h *Contract) GiftBadgeToUserAct(w http.ResponseWriter, r *http.Request) {
 	err = m.AddBadgeToUser(h.DB, ctx, badge.Id, userId, adminId)
 	if err != nil {
 		h.SendBadRequest(w, err.Error())
+		return
+	}
+
+	h.SendSuccess(w, nil, nil)
+}
+
+func (h *Contract) ImportCsvToUpdateBadgesAct(w http.ResponseWriter, r *http.Request) {
+	var (
+		ctx        = context.TODO()
+		info       = new(upload.Info)
+		name       = "file"
+		allowedExt = []string{"csv"}
+		m          = model.Contract{App: h.App}
+	)
+
+	info.MaxSize = 10
+	file, _, err := info.MultipartHandler(w, r, name, allowedExt)
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		return
+	}
+	defer file.Close()
+
+	// Reset the file pointer to the beginning after the MultipartHandler has read it
+	if _, err := file.Seek(0, 0); err != nil {
+		h.SendBadRequest(w, utils.ErrToReadCSVFile)
+		return
+	}
+
+	var records []struct {
+		BadgeCode string
+		VPPoint   string
+	}
+
+	fields := map[string]string{
+		"badge_code": "BadgeCode",
+		"vp_point":   "VPPoint",
+	}
+
+	err = utils.ParseCSVToStruct(file, &records, fields)
+	if err != nil {
+		h.SendBadRequest(w, utils.ErrFailedParseCSVDataToStruct)
+		return
+	}
+
+	// Start a transaction
+	tx, err := h.DB.Begin(ctx)
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		return
+	}
+
+	defer func() {
+		if err != nil {
+			tx.Rollback(ctx)
+		}
+		tx.Commit(ctx)
+	}()
+
+	for _, v := range records {
+		// Get Badge ID by Code
+		badge, err := m.GetBadgeDetailByCode(h.DB, ctx, v.BadgeCode)
+		if err != nil {
+			h.SendBadRequest(w, err.Error())
+			return
+		}
+
+		vp, err := strconv.ParseInt(v.VPPoint, 10, 64)
+		if err != nil {
+			h.SendBadRequest(w, utils.ErrImportingBadgeData)
+			return
+		}
+
+		// Update Badge
+		err = m.UpdateBadgeByCode(tx, ctx, badge.BadgeCategory, badge.Name, badge.Description.String, badge.ImageURL, badge.Status, vp, badge.BadgeCode)
+		if err != nil {
+			h.SendBadRequest(w, err.Error())
+			return
+		}
+	}
+
+	for _, v := range records {
+		badge, err := m.GetBadgeDetailByCode(h.DB, ctx, v.BadgeCode)
+		if err != nil {
+			continue
+		}
+
+		// check if status active will send publish check badge available
+		if badge.Status == "active" {
+			// Publisher badge
+			queueData := rabbit.QueueDataPayload(
+				rabbit.QueueBadges,
+				rabbit.QueueBadgeReq(
+					badge.BadgeCode,
+				),
+			)
+			queueHost := m.Config.GetString("queue.rabbitmq.host")
+			err = rabbit.PublishQueue(ctx, queueHost, queueData)
+			if err != nil {
+				log.Printf("Error : %s", err)
+			}
+		}
+	}
+
+	// Db tx commit
+	err = tx.Commit(ctx)
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		tx.Rollback(ctx)
 		return
 	}
 

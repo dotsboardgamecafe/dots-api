@@ -116,6 +116,7 @@ var (
 	ErrGettingGameAdmins   = "Error getting list game admin"
 	ErrScanningGameAdmins  = "Error scanning list game admin"
 	ErrSyncingGameAdmins   = "Error syncing game admin"
+	ErrImportingGameData   = "Error importing game data"
 
 	// Error for module game category
 	ErrAddingGameCategory   = "Error adding game category"
@@ -233,6 +234,7 @@ var (
 	ErrAddingBadgeToUser              = "Error adding badge to user"
 	ErrBadgeCannotBeAddedToUser       = "Error badge cannot be added to user"
 	ErrUserAlreadyHasTheBadge         = "Error user already has the badge"
+	ErrImportingBadgeData             = "Error importing badge data"
 
 	ErrGettingBadgeRuleList   = "Error getting list of badge rules"
 	ErrScanningBadgeRule      = "Error scanning badge rule"
@@ -349,4 +351,5 @@ var (
 
 	// Failed Parse CSV Data To Struct
 	ErrFailedParseCSVDataToStruct = "error failed parse CSV data to struct"
+	ErrToReadCSVFile              = "error to read csv file"
 )

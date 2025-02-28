@@ -28,6 +28,20 @@ type (
 		GameCategories     []GameCategoryReq `json:"game_categories"`
 	}
 
+	GameCSVReq struct {
+		GameCode           string
+		Name               string
+		GameType           string
+		Description        string
+		Status             string
+		Difficulty         string
+		Level              string
+		Duration           string
+		MinimalParticipant string
+		MaximumParticipant string
+		AdminCode          string
+	}
+
 	GameParam struct {
 		Page               int      `json:"page"`
 		Limit              int      `json:"limit"`
