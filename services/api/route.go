@@ -117,6 +117,7 @@ func AppSubsRoute(r chi.Router, app *bootstrap.App) {
 		r.Use(app.VerifyJwtToken)
 		r.With(app.VerifyAccessRoute).Get("/", nrWrap(h.GetGameListAct, app.NewRelic))
 		r.With(app.VerifyAccessRoute).Post("/", nrWrap(h.AddGameAct, app.NewRelic))
+		r.With(app.VerifyAccessRoute).Post("/import", nrWrap(h.ImportCsvToUpdateGamesAct, app.NewRelic))
 		r.With(app.VerifyAccessRoute).Get("/{code}", nrWrap(h.GetGameDetailAct, app.NewRelic))
 		r.With(app.VerifyAccessRoute).Put("/{code}", nrWrap(h.UpdateGameAct, app.NewRelic))
 		r.With(app.VerifyAccessRoute).Delete("/{code}", nrWrap(h.DeleteGameAct, app.NewRelic))
@@ -180,8 +181,9 @@ func AppSubsRoute(r chi.Router, app *bootstrap.App) {
 	r.Route("/badges", func(r chi.Router) {
 		r.Use(app.VerifyJwtToken)
 		r.With(app.VerifyAccessRoute).Get("/", nrWrap(h.GetBadgeListAct, app.NewRelic))
-		r.With(app.VerifyAccessRoute).Post("/{code}/gift", nrWrap(h.GiftBadgeToUserAct, app.NewRelic))
+		r.With(app.VerifyAccessRoute).Post("/import", nrWrap(h.ImportCsvToUpdateBadgesAct, app.NewRelic))
 		r.With(app.VerifyAccessRoute).Get("/unowned/{user_code}", nrWrap(h.GetUnownedBadgeUserListAct, app.NewRelic))
+		r.With(app.VerifyAccessRoute).Post("/{code}/gift", nrWrap(h.GiftBadgeToUserAct, app.NewRelic))
 		r.With(app.VerifyAccessRoute).Get("/{code}", nrWrap(h.GetBadgeDetailAct, app.NewRelic))
 		r.With(app.VerifyAccessRoute).Post("/", nrWrap(h.AddBadgeAct, app.NewRelic))
 		r.With(app.VerifyAccessRoute).Put("/{code}", nrWrap(h.UpdateBadgeAct, app.NewRelic))

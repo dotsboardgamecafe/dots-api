@@ -65,6 +65,11 @@ type GameQRCodeRes struct {
 	Source string `json:"qrcode"`
 }
 
+type GameImportCsvRes struct {
+	TotalSuccess int `json:"total_success"`
+	TotalFailed  int `json:"total_failed"`
+}
+
 func BuildCollectionURLResp(data string) []string {
 	var resp []string
 	_ = json.Unmarshal([]byte(data), &resp)

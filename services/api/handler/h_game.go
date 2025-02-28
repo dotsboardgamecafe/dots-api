@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"dots-api/lib/upload"
 	"dots-api/lib/utils"
 	"dots-api/services/api/model"
 	"dots-api/services/api/request"
@@ -9,6 +10,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -321,6 +324,13 @@ func (h *Contract) UpdateGameAct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	defer func() {
+		if err != nil {
+			tx.Rollback(ctx)
+		}
+		tx.Commit(ctx)
+	}()
+
 	// Convert the array to JSON
 	collectionUrl, err := json.Marshal(req.CollectionUrl)
 	if err != nil {
@@ -461,4 +471,141 @@ func (h *Contract) GetGameQRCodeAct(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.SendSuccess(w, qr, nil)
+}
+
+func (h *Contract) ImportCsvToUpdateGamesAct(w http.ResponseWriter, r *http.Request) {
+	var (
+		ctx        = context.TODO()
+		info       = new(upload.Info)
+		name       = "file"
+		allowedExt = []string{"csv"}
+		m          = model.Contract{App: h.App}
+	)
+
+	info.MaxSize = 10
+	file, _, err := info.MultipartHandler(w, r, name, allowedExt)
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		return
+	}
+	defer file.Close()
+
+	// Reset the file pointer to the beginning after the MultipartHandler has read it
+	if _, err := file.Seek(0, 0); err != nil {
+		h.SendBadRequest(w, utils.ErrToReadCSVFile)
+		return
+	}
+
+	var records []request.GameCSVReq
+	fields := map[string]string{
+		"game_code":               "GameCode",
+		"name":                    "Name",
+		"game_type":               "GameType",
+		"duration":                "Duration",
+		"cafe_name":               "CafeName",
+		"level":                   "Level",
+		"minimal_participant":     "MinimalParticipant",
+		"maximum_participant":     "MaximumParticipant",
+		"status":                  "Status",
+		"description":             "Description",
+		"game_masters.admin_code": "AdminCode",
+	}
+
+	err = utils.ParseCSVToStruct(file, &records, fields)
+	if err != nil {
+		h.SendBadRequest(w, utils.ErrFailedParseCSVDataToStruct)
+		return
+	}
+
+	// Db tx start
+	tx, err := h.DB.Begin(ctx)
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		return
+	}
+
+	defer func() {
+		if err != nil {
+			tx.Rollback(ctx)
+		}
+		tx.Commit(ctx)
+	}()
+
+	for _, v := range records {
+		// Get Game Id
+		game, err := m.GetGameByCode(h.DB, ctx, v.GameCode)
+		if err != nil {
+			h.SendBadRequest(w, err.Error())
+			return
+		}
+
+		cafeId, err := m.GetCafeIdByCode(h.DB, ctx, game.CafeCode)
+		if err != nil {
+			h.SendBadRequest(w, err.Error())
+			return
+		}
+
+		duration, err := strconv.ParseInt(v.Duration, 10, 64)
+		if err != nil {
+			h.SendBadRequest(w, utils.ErrImportingGameData)
+			return
+		}
+
+		level, err := strconv.ParseFloat(v.Level, 64)
+		if err != nil {
+			h.SendBadRequest(w, utils.ErrImportingGameData)
+			return
+		}
+
+		minimalParticipant, err := strconv.ParseInt(v.MinimalParticipant, 10, 64)
+		if err != nil {
+			h.SendBadRequest(w, utils.ErrImportingGameData)
+			return
+		}
+
+		maximumParticipant, err := strconv.ParseInt(v.MaximumParticipant, 10, 64)
+		if err != nil {
+			h.SendBadRequest(w, utils.ErrImportingGameData)
+			return
+		}
+
+		err = m.UpdateGameByCode(tx, ctx, cafeId, game.GameCode, v.GameType, v.Name, game.ImageUrl, game.CollectionUrl, v.Description, v.Difficulty, v.Status, level, minimalParticipant, maximumParticipant, duration)
+		if err != nil {
+			h.SendBadRequest(w, err.Error())
+			return
+		}
+
+		adminIds, err := m.GetAdminIdsByCode(h.DB, ctx, strings.Split(v.AdminCode, ","))
+		if err != nil {
+			admins, err := m.GetGameAdmins(h.DB, ctx, game.Id)
+			if err != nil {
+				h.SendBadRequest(w, err.Error())
+				return
+			}
+
+			for _, v := range admins {
+				adminIds = append(adminIds, int64(v.ID))
+			}
+		}
+
+		if len(adminIds) == 0 {
+			continue
+		}
+
+		err = m.SyncGameAdmins(tx, ctx, game.Id, adminIds)
+		if err != nil {
+			h.SendBadRequest(w, err.Error())
+			return
+		}
+	}
+
+	// Db tx commit
+	err = tx.Commit(ctx)
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		tx.Rollback(ctx)
+		return
+	}
+
+	h.SendSuccess(w, nil, nil)
 }
