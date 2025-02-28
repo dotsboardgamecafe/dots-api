@@ -262,6 +262,49 @@ func (c *Contract) CreateOneTimeInvoice(tx pgx.Tx, ctx context.Context, userId i
 	return lastInsertId, orderCode, invoiceUrl, resp.ExpiryDate, nil
 }
 
+func (c *Contract) CreateFreeInvoice(tx pgx.Tx, ctx context.Context, userId int64, dataSource string, sourceCode string, price float64, titleSubs string, email string) (int64, string, string, time.Time, error) {
+	var (
+		err             error
+		lastInsertId    int64
+		userFullname    string
+		userPhoneNumber string
+		currentTime     = time.Now().In(time.UTC)
+
+		sqlInsert = `INSERT INTO users_transactions (
+			user_id, data_source, source_code, transaction_code, aggregator_code,
+			price, payment_method, payment_link, status, resp_payload, created_date, updated_date, expired_date
+	   ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8 , $9, $10, $11, $12, $13) RETURNING id`
+
+		sqlGetUserData = `SELECT fullname, phone_number FROM users WHERE id = $1;`
+	)
+
+	// Generate OrderCode
+	orderCode := utils.GeneratePrefixCode(utils.TransactionPrefix)
+	_ = tx.QueryRow(ctx, sqlGetUserData, userId).Scan(&userFullname, &userPhoneNumber)
+
+	err = tx.QueryRow(ctx, sqlInsert,
+		userId,
+		dataSource,
+		sourceCode,
+		orderCode,
+		orderCode,
+		price,
+		"",
+		"",
+		"PAID",
+		"",
+		currentTime,
+		currentTime,
+		time.Now().Add(time.Hour*1),
+	).Scan(&lastInsertId)
+
+	if err != nil {
+		return lastInsertId, orderCode, "", time.Now().Add(time.Hour * 1), c.errHandler("model.CreateOneTimeInvoice", err, utils.ErrCreatingOneInvoice)
+	}
+
+	return lastInsertId, orderCode, "", time.Now().Add(time.Hour * 1), nil
+}
+
 func (c *Contract) GetInvoiceTrxByCode(db *pgxpool.Pool, ctx context.Context, aggregatorCode string) (OriginUserTransactionEnt, error) {
 	var (
 		err  error

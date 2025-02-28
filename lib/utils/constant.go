@@ -150,7 +150,7 @@ var (
 		"ROOM_TYPE_PLAY":       "[username] played in the [name] room and earned [vp]",
 		"BADGE_TYPE":           "[username] just claimed the [name] badge",
 		"REDEEM_TYPE":          "[username] has redeemed [name]",
-		"GAME_COLLECTION":      "[username] has played [name] for the first time",
+		"GAME_COLLECTION":      "[username] played [name] for the first time",
 		"TIER":                 "[username] has advanced to [name] tier",
 	}
 

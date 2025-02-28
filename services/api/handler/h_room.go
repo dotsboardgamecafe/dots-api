@@ -446,15 +446,33 @@ func (h *Contract) BookingRoom(w http.ResponseWriter, r *http.Request) {
 		tx.Commit(ctx)
 	}()
 
-	//call xendit
-	_, transactionCode, invoiceUrl, expiredAt, err := m.CreateOneTimeInvoice(tx, ctx, int64(user.ID), utils.UserPointType["ROOM_TYPE"], roomCode, room.BookingPrice, fmt.Sprintf("INVOICE-%s-%s", userCode, roomCode), user.Email.String)
-	if err != nil {
-		h.SendBadRequest(w, err.Error())
-		return
+	var (
+		statusParticipant, transactionCode, invoiceUrl string
+		expiredAt                                      time.Time
+		earnedPoint                                    int64
+	)
+
+	statusParticipant = "pending"
+	if room.BookingPrice > 0 {
+		earnedPoint = int64(utils.CalculateUserRedeemPoint(room.BookingPrice))
+		//call xendit
+		_, transactionCode, invoiceUrl, expiredAt, err = m.CreateOneTimeInvoice(tx, ctx, int64(user.ID), utils.UserPointType["ROOM_TYPE"], roomCode, room.BookingPrice, fmt.Sprintf("INVOICE-%s-%s", userCode, roomCode), user.Email.String)
+		if err != nil {
+			h.SendBadRequest(w, err.Error())
+			return
+		}
+	} else {
+		earnedPoint = int64(utils.CalculateUserRedeemPoint(room.BookingPrice))
+		//call xendit
+		_, transactionCode, invoiceUrl, expiredAt, err = m.CreateFreeInvoice(tx, ctx, int64(user.ID), utils.UserPointType["ROOM_TYPE"], roomCode, room.BookingPrice, fmt.Sprintf("INVOICE-%s-%s", userCode, roomCode), user.Email.String)
+		if err != nil {
+			h.SendBadRequest(w, err.Error())
+			return
+		}
+
+		statusParticipant = "active"
 	}
 
-	statusParticipant := "pending"
-	earnedPoint := int64(utils.CalculateUserRedeemPoint(room.BookingPrice))
 	// check if exist
 	if len(participant.UserCode) > 0 && participant.Status != "active" {
 		//update status
