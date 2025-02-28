@@ -547,25 +547,29 @@ func (h *Contract) ImportCsvToUpdateGamesAct(w http.ResponseWriter, r *http.Requ
 
 		duration, err := strconv.ParseInt(v.Duration, 10, 64)
 		if err != nil {
-			h.SendBadRequest(w, utils.ErrImportingGameData)
+			// h.SendBadRequest(w, utils.ErrImportingGameData)
+			h.SendBadRequest(w, "duration value must be a numeric")
 			return
 		}
 
 		level, err := strconv.ParseFloat(v.Level, 64)
 		if err != nil {
-			h.SendBadRequest(w, utils.ErrImportingGameData)
+			// h.SendBadRequest(w, utils.ErrImportingGameData)
+			h.SendBadRequest(w, "level value must be a numeric")
 			return
 		}
 
 		minimalParticipant, err := strconv.ParseInt(v.MinimalParticipant, 10, 64)
 		if err != nil {
-			h.SendBadRequest(w, utils.ErrImportingGameData)
+			// h.SendBadRequest(w, utils.ErrImportingGameData)
+			h.SendBadRequest(w, "minimal participant value must be a numeric")
 			return
 		}
 
 		maximumParticipant, err := strconv.ParseInt(v.MaximumParticipant, 10, 64)
 		if err != nil {
-			h.SendBadRequest(w, utils.ErrImportingGameData)
+			// h.SendBadRequest(w, utils.ErrImportingGameData)
+			h.SendBadRequest(w, "maximum participant value must be a numeric")
 			return
 		}
 
