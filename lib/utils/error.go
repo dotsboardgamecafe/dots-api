@@ -346,4 +346,7 @@ var (
 	ErrAddingUserBadge                = "error adding user badge"
 	ErrGettingTotalInvoiceAmount      = "error getting total invoice amount"
 	ErrGettingTotalBookingAmount      = "error getting total booking amount"
+
+	// Failed Parse CSV Data To Struct
+	ErrFailedParseCSVDataToStruct = "error failed parse CSV data to struct"
 )
