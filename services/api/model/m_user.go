@@ -696,14 +696,11 @@ func (c *Contract) GetUserIdByUserCode(db *pgxpool.Pool, ctx context.Context, Us
 func (c *Contract) DeleteUserByCode(db *pgxpool.Pool, ctx context.Context, userCode string) error {
 	var (
 		err error
-		sql = `
-		UPDATE users 
-		SET updated_date=$1, deleted_date=$2 
-		WHERE user_code=$3`
+		sql = `DELETE FROM users WHERE user_code=$1`
 	)
-	_, err = db.Exec(ctx, sql, time.Now().In(time.UTC), time.Now().In(time.UTC), userCode)
+	_, err = db.Exec(ctx, sql, userCode)
 	if err != nil {
-		return c.errHandler("model.DeleteUserByCode", err, utils.ErrDeletingAdmin)
+		return c.errHandler("model.DeleteUserByCode", err, utils.ErrDeletingUser)
 	}
 
 	return nil
