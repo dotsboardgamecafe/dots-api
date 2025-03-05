@@ -227,7 +227,7 @@ func (c *Contract) GetTournamentByCode(db *pgxpool.Pool, ctx context.Context, co
 	)
 
 	err = db.QueryRow(ctx, query, code).Scan(
-		&data.GameId, &data.GameCode, &data.GameType, &data.GameName, &data.ImageUrl,
+		&data.GameId, &data.GameCode, &data.GameType, &data.GameName, &data.GameImgUrl,
 		&data.CafeCode, &data.CafeName, &data.CafeAddress,
 		&data.TournamentId, &data.TournamentCode, &data.ImageUrl, &data.Name, &data.PrizesImgUrl,
 		&data.TournamentRules, &data.Level, &data.StartDate, &data.EndDate, &data.BookingPrice,
