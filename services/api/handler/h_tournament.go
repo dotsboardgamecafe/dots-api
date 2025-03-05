@@ -871,14 +871,14 @@ func (h *Contract) BookingTournamentAct(w http.ResponseWriter, r *http.Request) 
 	// check if exist
 	if participant.Id > 0 && participant.Status != "active" {
 		//update status
-		err = m.UpdateRoomParticipant(tx, ctx, trnm.TournamentId, int64(user.ID), false, participant.Position, statusParticipant, participant.AdditionalInfo.String, earnedPoint, transactionCode)
+		err = m.UpdateTournamentParticipant(tx, ctx, trnm.TournamentId, int64(user.ID), false, participant.Position, statusParticipant, participant.AdditionalInfo.String, earnedPoint, transactionCode)
 		if err != nil {
 			h.SendBadRequest(w, err.Error())
 			return
 		}
 	} else {
 		//add participant
-		err = m.InsertOneRoomParticipant(tx, ctx, trnm.TournamentId, int64(user.ID), statusParticipant, earnedPoint, transactionCode)
+		err = m.InsertOneTournamentParticipant(tx, ctx, trnm.TournamentId, int64(user.ID), statusParticipant, earnedPoint, transactionCode)
 		if err != nil {
 			h.SendBadRequest(w, err.Error())
 			return
