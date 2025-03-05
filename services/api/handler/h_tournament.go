@@ -878,7 +878,7 @@ func (h *Contract) BookingTournamentAct(w http.ResponseWriter, r *http.Request) 
 		}
 	} else {
 		//add participant
-		err = m.InsertOneTournamentParticipant(tx, ctx, trnm.TournamentId, int64(user.ID), statusParticipant, earnedPoint, transactionCode)
+		err = m.InsertOneTournamentParticipant(tx, ctx, trnm.TournamentId, int64(user.ID), false, participant.Position, statusParticipant, participant.AdditionalInfo.String, earnedPoint, transactionCode)
 		if err != nil {
 			h.SendBadRequest(w, err.Error())
 			return
