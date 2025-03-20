@@ -299,7 +299,7 @@ func (c *Contract) CreateFreeInvoice(tx pgx.Tx, ctx context.Context, userId int6
 	).Scan(&lastInsertId)
 
 	if err != nil {
-		return lastInsertId, orderCode, "", time.Now().Add(time.Hour * 1), c.errHandler("model.CreateOneTimeInvoice", err, utils.ErrCreatingOneInvoice)
+		return lastInsertId, orderCode, "", time.Now().Add(time.Hour * 1), c.errHandler("model.CreateFreeInvoice", err, utils.ErrCreatingOneInvoice)
 	}
 
 	return lastInsertId, orderCode, "", time.Now().Add(time.Hour * 1), nil

@@ -150,7 +150,7 @@ func (c *Contract) GetUniqueGame(db *pgxpool.Pool, ctx context.Context, param re
 
 	// Limit
 	paramQuery = append(paramQuery, param.Limit)
-	query += fmt.Sprintf(" GROUP BY u.user_code, u.username, u.fullname, u.image_url LIMIT $%d ", len(paramQuery))
+	query += fmt.Sprintf(" GROUP BY u.user_code, u.username, u.fullname, u.image_url ORDER BY total_played_game DESC LIMIT $%d", len(paramQuery))
 
 	rows, err := db.Query(ctx, query, paramQuery...)
 	if err != nil {

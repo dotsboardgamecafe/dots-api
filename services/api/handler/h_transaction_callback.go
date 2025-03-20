@@ -165,7 +165,7 @@ func (h *Contract) TransactionCallback(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// Add user point from vp point participation (used for activity)
-			err = m.AddUserPoint(tx, ctx, participant.UserId, trx.DataSource, trx.SourceCode, 0)
+			err = m.AddUserPoint(tx, ctx, participant.UserId, trx.DataSource, trx.SourceCode, int(trnm.ParticipantVP))
 			if err != nil {
 				h.SendBadRequest(w, err.Error())
 				return

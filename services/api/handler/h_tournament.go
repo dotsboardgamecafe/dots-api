@@ -851,7 +851,7 @@ func (h *Contract) BookingTournamentAct(w http.ResponseWriter, r *http.Request) 
 	if trnm.BookingPrice > 0 {
 		earnedPoint = int64(utils.CalculateUserRedeemPoint(trnm.BookingPrice))
 		//call xendit
-		_, transactionCode, invoiceUrl, expiredAt, err = m.CreateOneTimeInvoice(tx, ctx, int64(user.ID), utils.UserPointType["ROOM_TYPE"], tournamentCode, trnm.BookingPrice, fmt.Sprintf("INVOICE-%s-%s", userCode, tournamentCode), user.Email.String)
+		_, transactionCode, invoiceUrl, expiredAt, err = m.CreateOneTimeInvoice(tx, ctx, int64(user.ID), utils.UserPointType["TOURNAMENT_TYPE"], tournamentCode, trnm.BookingPrice, fmt.Sprintf("INVOICE-%s-%s", userCode, tournamentCode), user.Email.String)
 		if err != nil {
 			h.SendBadRequest(w, err.Error())
 			return
@@ -859,13 +859,43 @@ func (h *Contract) BookingTournamentAct(w http.ResponseWriter, r *http.Request) 
 	} else {
 		earnedPoint = int64(utils.CalculateUserRedeemPoint(trnm.BookingPrice))
 		//call xendit
-		_, transactionCode, invoiceUrl, expiredAt, err = m.CreateFreeInvoice(tx, ctx, int64(user.ID), utils.UserPointType["ROOM_TYPE"], tournamentCode, trnm.BookingPrice, fmt.Sprintf("INVOICE-%s-%s", userCode, tournamentCode), user.Email.String)
+		_, transactionCode, invoiceUrl, expiredAt, err = m.CreateFreeInvoice(tx, ctx, int64(user.ID), utils.UserPointType["TOURNAMENT_TYPE"], tournamentCode, trnm.BookingPrice, fmt.Sprintf("INVOICE-%s-%s", userCode, tournamentCode), user.Email.String)
 		if err != nil {
 			h.SendBadRequest(w, err.Error())
 			return
 		}
 
 		statusParticipant = "active"
+
+		// Add user point from price (to log transaction event though it was free)
+		err = m.AddUserPoint(tx, ctx, int64(user.ID), utils.UserPointType["TOURNAMENT_TYPE_PAID"], transactionCode, 0)
+		if err != nil {
+			h.SendBadRequest(w, err.Error())
+			return
+		}
+
+		// Add user point from vp point participation (used for activity)
+		err = m.AddUserPoint(tx, ctx, int64(user.ID), utils.UserPointType["TOURNAMENT_TYPE"], trnm.TournamentCode, int(trnm.ParticipantVP))
+		if err != nil {
+			h.SendBadRequest(w, err.Error())
+			return
+		}
+
+		go func(ctx context.Context, userID int64) {
+			// Publisher badge
+			queueData := rabbit.QueueDataPayload(
+				rabbit.QueueUserBadge,
+				rabbit.QueueUserBadgeReq(
+					utils.TimeLimit,
+					int64(user.ID),
+				),
+			)
+			queueHost := m.Config.GetString("queue.rabbitmq.host")
+			err = rabbit.PublishQueue(ctx, queueHost, queueData)
+			if err != nil {
+				log.Printf("Error : %s", err)
+			}
+		}(ctx, int64(user.ID))
 	}
 
 	// check if exist

@@ -470,7 +470,36 @@ func (h *Contract) BookingRoom(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		// Add user point from price (to log transaction event though it was free)
+		err = m.AddUserPoint(tx, ctx, int64(user.ID), utils.UserPointType["ROOM_TYPE_PAID"], transactionCode, 0)
+		if err != nil {
+			h.SendBadRequest(w, err.Error())
+			return
+		}
+
+		// Add user point from vp point participation (used for activity)
+		err = m.AddUserPoint(tx, ctx, int64(user.ID), utils.UserPointType["ROOM_TYPE"], roomCode, room.RewardPoint)
+		if err != nil {
+			h.SendBadRequest(w, err.Error())
+			return
+		}
+
 		statusParticipant = "active"
+		go func(ctx context.Context, userID int64) {
+			// Publisher badge
+			queueData := rabbit.QueueDataPayload(
+				rabbit.QueueUserBadge,
+				rabbit.QueueUserBadgeReq(
+					utils.TimeLimit,
+					int64(user.ID),
+				),
+			)
+			queueHost := m.Config.GetString("queue.rabbitmq.host")
+			err = rabbit.PublishQueue(ctx, queueHost, queueData)
+			if err != nil {
+				log.Printf("Error : %s", err)
+			}
+		}(ctx, int64(user.ID))
 	}
 
 	// check if exist

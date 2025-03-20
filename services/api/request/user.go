@@ -13,7 +13,7 @@ import (
 type (
 	UpdateProfileUserReq struct {
 		FullName    string `json:"full_name"`
-		UserName    string `json:"username"`
+		UserName    string `json:"username" validate:"required,max=12"`
 		ImageUrl    string `json:"image_url"`
 		Gender      string `json:"gender"`
 		DateOfBirth string `json:"date_of_birth"`
@@ -37,7 +37,7 @@ type (
 		DateOfBirth time.Time `json:"date_of_birth"`
 		PhoneNumber string    `json:"phone_number"`
 		Email       string    `json:"email"`
-		UserName    string    `json:"username"`
+		UserName    string    `json:"username" validate:"required,max=12"`
 		Status      string    `json:"status"`
 	}
 
