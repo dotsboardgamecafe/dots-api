@@ -250,7 +250,13 @@ func (h *Contract) UpdateUserProfileAct(w http.ResponseWriter, r *http.Request) 
 
 	// Bind and validate
 	if err = h.BindAndValidate(r, &req); err != nil {
-		h.SendBindAndValidateError(w, err.Error())
+		h.SendBindAndValidateError(w, err)
+		return
+	}
+
+	// Check if username exceeds max character limit (12)
+	if len(req.UserName) > 12 {
+		h.SendBadRequest(w, utils.ErrUsernameExceedsMaxCharacterLimit)
 		return
 	}
 
@@ -331,7 +337,7 @@ func (h *Contract) UpdateUserStatusAct(w http.ResponseWriter, r *http.Request) {
 
 	// Bind and validate
 	if err = h.BindAndValidate(r, &req); err != nil {
-		h.SendBindAndValidateError(w, err.Error())
+		h.SendBindAndValidateError(w, err)
 		return
 	}
 
@@ -360,7 +366,13 @@ func (h *Contract) UpdateUserAct(w http.ResponseWriter, r *http.Request) {
 
 	// Bind and validate
 	if err = h.BindAndValidate(r, &req); err != nil {
-		h.SendBindAndValidateError(w, err.Error())
+		h.SendBindAndValidateError(w, err)
+		return
+	}
+
+	// Check if username exceeds max character limit (12)
+	if len(req.UserName) > 12 {
+		h.SendBadRequest(w, utils.ErrUsernameExceedsMaxCharacterLimit)
 		return
 	}
 

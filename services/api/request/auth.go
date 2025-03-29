@@ -13,7 +13,7 @@ type RegisterUserReq struct {
 	PhoneNumber     string `json:"phone_number" validate:"required"`
 	Password        string `json:"password" validate:"required"`
 	ConfirmPassword string `json:"confirm_password" validate:"required"`
-	Username        string `json:"username" validate:"required,max=12"`
+	Username        string `json:"username" validate:"required"`
 }
 
 type RequestVerifyEmailReq struct {

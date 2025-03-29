@@ -107,6 +107,12 @@ func (h *Contract) RegisterUserAct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if username exceeds max character limit (12)
+	if len(req.Username) > 12 {
+		h.SendBadRequest(w, utils.ErrUsernameExceedsMaxCharacterLimit)
+		return
+	}
+
 	// Compare Password
 	if req.Password != req.ConfirmPassword {
 		h.SendBadRequest(w, utils.ErrPasswordMismatch)
