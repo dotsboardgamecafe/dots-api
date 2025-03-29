@@ -144,10 +144,10 @@ var (
 
 	// UserPointTypeText
 	UserPointTypeText = map[string]string{
-		"TOURNAMENT_TYPE":      "[username] has joined [name] and gained [vp]",
-		"TOURNAMENT_TYPE_PLAY": "[username] played in the [name] tournament and earned [vp]",
-		"ROOM_TYPE":            "[username] has joined [name] and gained [vp]",
-		"ROOM_TYPE_PLAY":       "[username] played in the [name] room and earned [vp]",
+		"TOURNAMENT_TYPE":      "[username] has joined [name]",
+		"TOURNAMENT_TYPE_PLAY": "[username] has gained VP from joining [name]",
+		"ROOM_TYPE":            "[username] has joined [name]",
+		"ROOM_TYPE_PLAY":       "[username] has gained VP from joining [name]",
 		"BADGE_TYPE":           "[username] just claimed the [name] badge",
 		"REDEEM_TYPE":          "[username] has redeemed [name]",
 		"GAME_COLLECTION":      "[username] played [name] for the first time",
