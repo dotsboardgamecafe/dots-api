@@ -69,7 +69,7 @@ func (param *RoomParam) ParseRoom(values url.Values) error {
 	param.Keyword = ""
 	param.Page = 1
 	param.Limit = 10
-	param.Sort = []string{"desc"}
+	param.Sort = []string{"asc"}
 	param.Order = []string{"rooms.start_date"}
 	param.Status = ""
 	param.Offset = 0

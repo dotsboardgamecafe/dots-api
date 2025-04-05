@@ -60,8 +60,8 @@ func (param *TournamentParam) ParseTournament(values url.Values) error {
 	param.Keyword = ""
 	param.Page = 1
 	param.Limit = 10
-	param.Sort = []string{"desc"}
-	param.Order = []string{"tournaments.created_date"}
+	param.Sort = []string{"asc"}
+	param.Order = []string{"tournaments.start_date"}
 	param.Status = ""
 	param.Offset = 0
 	param.CafeCity = ""
@@ -83,7 +83,7 @@ func (param *TournamentParam) ParseTournament(values url.Values) error {
 		orders := strings.Split(order[0], ",")
 		validOrders := []string{}
 		for _, o := range orders {
-			if exist, _ := arrStr.InArray(o, []string{"tournaments.created_date", "tournaments.name", "tournaments.status", "days_past_end_date"}); exist {
+			if exist, _ := arrStr.InArray(o, []string{"tournaments.created_date", "tournaments.name", "tournaments.status", "tournaments.start_date", "days_past_end_date"}); exist {
 				validOrders = append(validOrders, o)
 			}
 		}

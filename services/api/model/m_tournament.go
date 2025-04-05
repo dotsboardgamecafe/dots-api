@@ -128,10 +128,9 @@ func (c *Contract) GetTournamentList(db *pgxpool.Pool, ctx context.Context, para
 	}
 
 	// Append All Where Conditions
+	query += " WHERE ( tournaments.deleted_date IS NULL AND games.status = 'active' AND games.deleted_date IS NULL ) and ( cafes.status = 'active' AND cafes.deleted_date IS NULL ) "
 	if len(where) > 0 {
-		query += " WHERE ( tournaments.deleted_date IS NULL AND games.status = 'active' AND games.deleted_date IS NULL ) and ( cafes.status = 'active' AND cafes.deleted_date IS NULL ) AND (" + strings.Join(where, " AND ") + ")"
-	} else {
-		query += " WHERE ( tournaments.deleted_date IS NULL AND games.status = 'active' AND games.deleted_date IS NULL ) and ( cafes.status = 'active' AND cafes.deleted_date IS NULL ) "
+		query += " AND (" + strings.Join(where, " AND ") + ")"
 	}
 
 	{
@@ -159,7 +158,15 @@ func (c *Contract) GetTournamentList(db *pgxpool.Pool, ctx context.Context, para
 		if i < len(param.Sort) {
 			sortOrder = param.Sort[i]
 		}
+
 		orderByClauses = append(orderByClauses, fmt.Sprintf("%s %s", order, sortOrder))
+		// To properly order by start date and time, we also need to sort
+		// by end time in case there are tournaments with same start time with different end time
+		if order == "tournaments.start_date" {
+			orderByClauses = append(orderByClauses, fmt.Sprintf("tournaments.start_time %s", sortOrder))
+			orderByClauses = append(orderByClauses, "tournaments.end_date ASC")
+			orderByClauses = append(orderByClauses, "tournaments.end_time ASC")
+		}
 	}
 	query += " ORDER BY " + strings.Join(orderByClauses, ", ")
 
