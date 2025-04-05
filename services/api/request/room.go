@@ -70,7 +70,7 @@ func (param *RoomParam) ParseRoom(values url.Values) error {
 	param.Page = 1
 	param.Limit = 10
 	param.Sort = []string{"desc"}
-	param.Order = []string{"rooms.created_date"}
+	param.Order = []string{"rooms.start_date"}
 	param.Status = ""
 	param.Offset = 0
 
@@ -89,7 +89,7 @@ func (param *RoomParam) ParseRoom(values url.Values) error {
 		orders := strings.Split(order[0], ",")
 		validOrders := []string{}
 		for _, o := range orders {
-			if exist, _ := arrStr.InArray(o, []string{"rooms.id", "rooms.name", "rooms.description", "rooms.status", "rooms.created_date", "days_past_end_date"}); exist {
+			if exist, _ := arrStr.InArray(o, []string{"rooms.id", "rooms.name", "rooms.description", "rooms.status", "rooms.created_date", "rooms.start_date", "days_past_end_date"}); exist {
 				validOrders = append(validOrders, o)
 			}
 		}

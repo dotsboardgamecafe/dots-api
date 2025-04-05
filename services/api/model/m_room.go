@@ -158,10 +158,9 @@ func (c *Contract) GetRoomList(db *pgxpool.Pool, ctx context.Context, param requ
 	}
 
 	// Append All Where Conditions
+	query += " WHERE rooms.deleted_date is null "
 	if len(where) > 0 {
-		query += " WHERE rooms.deleted_date is null AND " + strings.Join(where, " AND ")
-	} else {
-		query += " WHERE rooms.deleted_date is null "
+		query += " AND " + strings.Join(where, " AND ")
 	}
 
 	{
@@ -190,7 +189,14 @@ func (c *Contract) GetRoomList(db *pgxpool.Pool, ctx context.Context, param requ
 		if i < len(param.Sort) {
 			sortOrder = param.Sort[i]
 		}
+
 		orderByClauses = append(orderByClauses, fmt.Sprintf("%s %s", order, sortOrder))
+		// To properly order by start date and time, we also need to sort
+		// by end time in case there are rooms with same start time with different end time
+		if order == "rooms.start_date" {
+			orderByClauses = append(orderByClauses, fmt.Sprintf("rooms.start_time %s", sortOrder))
+			orderByClauses = append(orderByClauses, "rooms.end_time ASC")
+		}
 	}
 	query += " ORDER BY " + strings.Join(orderByClauses, ", ")
 
@@ -199,7 +205,7 @@ func (c *Contract) GetRoomList(db *pgxpool.Pool, ctx context.Context, param requ
 
 	paramQuery = append(paramQuery, param.Limit)
 	query += fmt.Sprintf(" LIMIT $%d ", len(paramQuery))
-
+	fmt.Println(query)
 	rows, err := db.Query(ctx, query, paramQuery...)
 	if err != nil {
 		return list, param, c.errHandler("model.GetRoomList", err, utils.ErrGettingListRoom)
