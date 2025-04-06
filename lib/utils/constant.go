@@ -130,28 +130,28 @@ var (
 
 	// Mapping UserPointType, RedeemPlatform, PaymentStatus, RoomStatus & TournamentStatus
 	UserPointType = map[string]string{
-		"TOURNAMENT_TYPE":      "tournament",
-		"TOURNAMENT_TYPE_PLAY": "tournament_play",
-		"TOURNAMENT_TYPE_PAID": "tournament_paid",
-		"ROOM_TYPE":            "room",
-		"ROOM_TYPE_PLAY":       "room_play",
-		"ROOM_TYPE_PAID":       "room_paid",
-		"BADGE_TYPE":           "badge",
-		"REDEEM_TYPE":          "redeem",
-		"GAME_COLLECTION":      "game",
-		"TIER":                 "tier",
+		"TOURNAMENT_TYPE": "tournament",
+		"TOURNAMENT_PLAY": "tournament_play",
+		"TOURNAMENT_PAID": "tournament_paid",
+		"ROOM_TYPE":       "room",
+		"ROOM_PLAY":       "room_play",
+		"ROOM_PAID":       "room_paid",
+		"BADGE_TYPE":      "badge",
+		"REDEEM_TYPE":     "redeem",
+		"GAME_COLLECTION": "game",
+		"TIER":            "tier",
 	}
 
 	// UserPointTypeText
 	UserPointTypeText = map[string]string{
-		"TOURNAMENT_TYPE":      "[username] has joined [name]",
-		"TOURNAMENT_TYPE_PLAY": "[username] has gained VP from joining [name]",
-		"ROOM_TYPE":            "[username] has joined [name]",
-		"ROOM_TYPE_PLAY":       "[username] has gained VP from joining [name]",
-		"BADGE_TYPE":           "[username] just claimed the [name] badge",
-		"REDEEM_TYPE":          "[username] has redeemed [name]",
-		"GAME_COLLECTION":      "[username] played [name] for the first time",
-		"TIER":                 "[username] has advanced to [name] tier",
+		"TOURNAMENT_TYPE": "[username] has joined [name]",
+		"TOURNAMENT_PLAY": "[username] has gained [vp] #vp# from joining [name]",
+		"ROOM_TYPE":       "[username] has joined [name]",
+		"ROOM_PLAY":       "[username] has gained [vp] #vp# from joining [name]",
+		"BADGE_TYPE":      "[username] just claimed the [name] badge",
+		"REDEEM_TYPE":     "[username] has redeemed [name]",
+		"GAME_COLLECTION": "[username] played [name] for the first time",
+		"TIER":            "[username] has advanced to [name] tier",
 	}
 
 	RedeemPlatform = map[string]string{

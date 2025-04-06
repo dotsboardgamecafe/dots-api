@@ -99,14 +99,14 @@ func (h *Contract) TransactionCallback(w http.ResponseWriter, r *http.Request) {
 		if req.Status == "PAID" {
 			// Add user point from price
 			earnedPoint := utils.CalculateUserRedeemPoint(trx.Price)
-			err = m.AddUserPoint(tx, ctx, participant.UserId, utils.UserPointType["ROOM_TYPE_PAID"], trx.SourceCode, earnedPoint)
+			err = m.AddUserPoint(tx, ctx, participant.UserId, utils.UserPointType["ROOM_PAID"], trx.SourceCode, earnedPoint)
 			if err != nil {
 				h.SendBadRequest(w, err.Error())
 				return
 			}
 
 			// Add user point from vp point participation
-			err = m.AddUserPoint(tx, ctx, participant.UserId, trx.DataSource, trx.SourceCode, participant.ParticipationPoint)
+			err = m.AddUserPoint(tx, ctx, participant.UserId, trx.DataSource, trx.SourceCode, 0)
 			if err != nil {
 				h.SendBadRequest(w, err.Error())
 				return
@@ -158,14 +158,14 @@ func (h *Contract) TransactionCallback(w http.ResponseWriter, r *http.Request) {
 		if req.Status == "PAID" {
 			// Add user point
 			earnedPoint := utils.CalculateUserRedeemPoint(trx.Price)
-			err = m.AddUserPoint(tx, ctx, participant.UserId, utils.UserPointType["TOURNAMENT_TYPE_PAID"], trx.SourceCode, earnedPoint)
+			err = m.AddUserPoint(tx, ctx, participant.UserId, utils.UserPointType["TOURNAMENT_PAID"], trx.SourceCode, earnedPoint)
 			if err != nil {
 				h.SendBadRequest(w, err.Error())
 				return
 			}
 
 			// Add user point from vp point participation (used for activity)
-			err = m.AddUserPoint(tx, ctx, participant.UserId, trx.DataSource, trx.SourceCode, int(trnm.ParticipantVP))
+			err = m.AddUserPoint(tx, ctx, participant.UserId, trx.DataSource, trx.SourceCode, 0)
 			if err != nil {
 				h.SendBadRequest(w, err.Error())
 				return

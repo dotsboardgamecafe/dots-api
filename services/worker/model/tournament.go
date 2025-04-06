@@ -51,7 +51,7 @@ func (c *Contract) GetTournamentList(db *pgxpool.Pool, ctx context.Context, star
 		(
 			SELECT COUNT(1) AS total_current_user 
 			FROM tournaments JOIN tournament_participants ON tournament_participants.tournament_id = tournaments.id
-			WHERE tournament_participants.status != 'cancel'
+			WHERE tournament_participants.status = 'active'
 		) AS current_used_slot,
 		tournaments.status,  
 		tournaments.created_date, tournaments.updated_date, tournaments.deleted_date

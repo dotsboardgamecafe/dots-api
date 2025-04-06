@@ -278,7 +278,7 @@ func (c *Contract) CountParticipantRoomByRoomId(db *pgxpool.Pool, ctx context.Co
 		totalParticipant int
 
 		queryGetTotalParticipant = `select count(id) from rooms_participants rp 
-		where rp.status != 'cancel' and room_id = $1
+		where room_id = $1 AND rp.status = 'active'
 		group by room_id `
 	)
 
@@ -290,4 +290,16 @@ func (c *Contract) CountParticipantRoomByRoomId(db *pgxpool.Pool, ctx context.Co
 	}
 
 	return totalParticipant, nil
+}
+
+func (c *Contract) DeactiveRoomParticipant(db *pgxpool.Pool, ctx context.Context, roomId int64, userId int64) error {
+	var (
+		err   error
+		query = `UPDATE rooms_participants SET status = 'inactive', updated_date = NOW() WHERE room_id=$1 AND user_id=$2`
+	)
+	_, err = db.Exec(ctx, query, roomId, userId)
+	if err != nil {
+		return c.errHandler("model.DeactiveParticipant", err, utils.ErrDeactiveParticipant)
+	}
+	return nil
 }

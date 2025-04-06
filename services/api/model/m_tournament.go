@@ -80,7 +80,7 @@ func (c *Contract) GetTournamentList(db *pgxpool.Pool, ctx context.Context, para
 				COUNT(tournament_participants.user_id) AS count_participants, 
 				tournament_participants.tournament_id
 				FROM tournament_participants
-				WHERE tournament_participants.status != 'cancel'
+				WHERE tournament_participants.status = 'active'
 				GROUP BY tournament_participants.tournament_id
 		) AS tp 
 		ON tp.tournament_id = tournaments.id
@@ -226,7 +226,7 @@ func (c *Contract) GetTournamentByCode(db *pgxpool.Pool, ctx context.Context, co
 				COUNT(tournament_participants.user_id) AS count_participants, 
 				tournament_participants.tournament_id
 				FROM tournament_participants
-				WHERE tournament_participants.status != 'cancel'
+				WHERE tournament_participants.status = 'active'
 				GROUP BY tournament_participants.tournament_id
 		) AS tp 
 			ON tp.tournament_id = tournaments.id
@@ -304,7 +304,7 @@ func (c *Contract) CountParticipantTournamentByTournamentId(db *pgxpool.Pool, ct
 		totalParticipant int
 
 		queryGetTotalParticipant = `select count(id)  from tournament_participants tp 
-		where tp.status!= 'cancel' and tournament_id  = $1
+		where tp.status = 'active' and tournament_id  = $1
 		group by tournament_id `
 	)
 

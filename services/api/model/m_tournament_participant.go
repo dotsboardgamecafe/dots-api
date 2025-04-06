@@ -289,3 +289,15 @@ func (c *Contract) DeleteTournamentParticipant(tx pgx.Tx, ctx context.Context, t
 	}
 	return nil
 }
+
+func (c *Contract) DeactiveTournamentParticipant(db *pgxpool.Pool, ctx context.Context, tournamentId int64, userId int64) error {
+	var (
+		err   error
+		query = `UPDATE tournament_participants SET status = 'inactive', updated_date = NOW() WHERE tournament_id=$1 AND user_id=$2`
+	)
+	_, err = db.Exec(ctx, query, tournamentId, userId)
+	if err != nil {
+		return c.errHandler("model.DeactiveTournamentParticipant", err, utils.ErrDeactiveParticipant)
+	}
+	return nil
+}

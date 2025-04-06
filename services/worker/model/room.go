@@ -69,7 +69,7 @@ func (c *Contract) GetRoomList(db *pgxpool.Pool, ctx context.Context, startDate 
 				LEFT JOIN (
 					SELECT count(rp.user_id) AS count_participants, rp.room_id
 					FROM rooms_participants rp
-					WHERE rp.status != 'cancel'
+					WHERE rp.status = 'active'
 					GROUP BY rp.room_id
 				) AS cp ON cp.room_id = rooms.id
 			WHERE rooms.start_date = $1 AND rooms.deleted_date IS NULL`

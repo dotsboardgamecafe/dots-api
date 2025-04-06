@@ -169,12 +169,19 @@ func AppSubsRoute(r chi.Router, app *bootstrap.App) {
 		r.Use(app.VerifyJwtToken)
 		r.With(app.VerifyAccessRoute).Get("/", nrWrap(h.GetRoomList, app.NewRelic))
 		r.With(app.VerifyAccessRoute).Post("/", nrWrap(h.AddRoom, app.NewRelic))
-		r.With(app.VerifyAccessRoute).Put("/{code}", nrWrap(h.UpdateRoom, app.NewRelic))
-		r.With(app.VerifyAccessRoute).Put("/{code}/close", nrWrap(h.SetWinnerRoomAct, app.NewRelic))
-		r.With(app.VerifyAccessRoute).Get("/{code}", nrWrap(h.GetRoomByCode, app.NewRelic))
-		r.With(app.VerifyAccessRoute).Post("/{code}/book", nrWrap(h.BookingRoom, app.NewRelic))
-		r.With(app.VerifyAccessRoute).Put("/{code}/status", nrWrap(h.UpdateRoomStatus, app.NewRelic))
-		r.With(app.VerifyAccessRoute).Delete("/{code}", nrWrap(h.DeleteRoom, app.NewRelic))
+
+		r.Route("/{code}", func(r chi.Router) {
+			r.With(app.VerifyAccessRoute).Get("/", nrWrap(h.GetRoomByCode, app.NewRelic))
+			r.With(app.VerifyAccessRoute).Put("/", nrWrap(h.UpdateRoom, app.NewRelic))
+			r.With(app.VerifyAccessRoute).Delete("/", nrWrap(h.DeleteRoom, app.NewRelic))
+			r.With(app.VerifyAccessRoute).Put("/close", nrWrap(h.SetWinnerRoomAct, app.NewRelic))
+			r.With(app.VerifyAccessRoute).Post("/book", nrWrap(h.BookingRoom, app.NewRelic))
+			r.With(app.VerifyAccessRoute).Put("/status", nrWrap(h.UpdateRoomStatus, app.NewRelic))
+
+			r.Route("/participants", func(r chi.Router) {
+				r.With(app.VerifyAccessRoute).Delete("/", nrWrap(h.DeactiveRoomParticipantAct, app.NewRelic))
+			})
+		})
 	})
 
 	// Badges
@@ -202,13 +209,20 @@ func AppSubsRoute(r chi.Router, app *bootstrap.App) {
 	r.Route("/tournaments", func(r chi.Router) {
 		r.Use(app.VerifyJwtToken)
 		r.With(app.VerifyAccessRoute).Get("/", nrWrap(h.GetTournamentList, app.NewRelic))
-		r.With(app.VerifyAccessRoute).Get("/{code}", nrWrap(h.GetTournamentDetailAct, app.NewRelic))
 		r.With(app.VerifyAccessRoute).Post("/", nrWrap(h.AddTournamentAct, app.NewRelic))
-		r.With(app.VerifyAccessRoute).Put("/{code}", nrWrap(h.UpdateTournamentAct, app.NewRelic))
-		r.With(app.VerifyAccessRoute).Put("/{code}/close", nrWrap(h.SetWinnerTournamentAct, app.NewRelic))
-		r.With(app.VerifyAccessRoute).Put("/{code}/status", nrWrap(h.UpdateTournamentStatus, app.NewRelic))
-		r.With(app.VerifyAccessRoute).Delete("/{code}", nrWrap(h.DeleteTournamentAct, app.NewRelic))
-		r.With(app.VerifyAccessRoute).Post("/{code}/book", nrWrap(h.BookingTournamentAct, app.NewRelic))
+
+		r.Route("/{code}", func(r chi.Router) {
+			r.With(app.VerifyAccessRoute).Get("/", nrWrap(h.GetTournamentDetailAct, app.NewRelic))
+			r.With(app.VerifyAccessRoute).Put("/", nrWrap(h.UpdateTournamentAct, app.NewRelic))
+			r.With(app.VerifyAccessRoute).Delete("/", nrWrap(h.DeleteTournamentAct, app.NewRelic))
+			r.With(app.VerifyAccessRoute).Put("/close", nrWrap(h.SetWinnerTournamentAct, app.NewRelic))
+			r.With(app.VerifyAccessRoute).Put("/status", nrWrap(h.UpdateTournamentStatus, app.NewRelic))
+			r.With(app.VerifyAccessRoute).Post("/book", nrWrap(h.BookingTournamentAct, app.NewRelic))
+
+			r.Route("/participants", func(r chi.Router) {
+				r.With(app.VerifyAccessRoute).Delete("/", nrWrap(h.DeactiveTournamentParticipantAct, app.NewRelic))
+			})
+		})
 	})
 
 	// Upload

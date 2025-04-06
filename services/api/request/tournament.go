@@ -34,6 +34,10 @@ type UpdateStatusTournamentReq struct {
 	Status string `json:"status" validate:"required"`
 }
 
+type TournamentParticipantRemoveReq struct {
+	UserCode string `json:"user_code" validate:"required"`
+}
+
 type TournamentParticipant struct {
 	Position  int    `json:"position"`
 	BadgeCode string `json:"badge_code"`

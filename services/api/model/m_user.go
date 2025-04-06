@@ -545,7 +545,7 @@ func (c *Contract) GetPlayerAndOtherActivities(db *pgxpool.Pool, ctx context.Con
 			LEFT JOIN users_game_collections ugc ON ugc.user_id = up.user_id 
 				AND ugc.game_id = (SELECT id FROM games WHERE game_code = up.source_code)
 			LEFT JOIN games g ON g.id = r.game_id OR g.id = t.game_id OR g.id = ugc.game_id 
-    	WHERE up.data_source IN ('room', 'tournament', 'badge', 'tier', 'game')
+    	WHERE up.data_source IN ('room', 'room_play', 'tournament', 'tournament_play', 'badge', 'tier', 'game')
 			ORDER BY up.id DESC
 			LIMIT 5;`
 	)

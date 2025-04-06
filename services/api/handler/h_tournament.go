@@ -611,12 +611,6 @@ func (h *Contract) SetWinnerTournamentAct(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	participants, err := m.GetAllParticipantByTournamentCode(h.DB, ctx, tournamentCode)
-	if err != nil {
-		h.SendBadRequest(w, err.Error())
-		return
-	}
-
 	tournamentId := tournamentData.TournamentId
 	tournamentParticipantPoint := tournamentData.ParticipantVP
 
@@ -632,6 +626,7 @@ func (h *Contract) SetWinnerTournamentAct(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	var participantIds []int64
 	for _, req := range reqs.TournamentParticipant {
 		var statusWinner bool
 
@@ -644,6 +639,11 @@ func (h *Contract) SetWinnerTournamentAct(w http.ResponseWriter, r *http.Request
 		tournamentEnt, err := m.GetOneTournamentParticipant(h.DB, ctx, tournamentId, int64(userId))
 		if err != nil {
 			h.SendBadRequest(w, err.Error())
+			return
+		}
+
+		if tournamentEnt.Status != "active" {
+			h.SendBadRequest(w, fmt.Sprintf("Tournament participant %s is inactive", req.UserCode))
 			return
 		}
 
@@ -675,14 +675,14 @@ func (h *Contract) SetWinnerTournamentAct(w http.ResponseWriter, r *http.Request
 
 			// Update participant tournament info
 			err = m.UpdateTournamentParticipant(
-				tx, ctx, tournamentId, int64(userId), statusWinner, req.Position, tournamentEnt.Status, tournamentEnt.AdditionalInfo.String, badgeData.VPPoint, tournamentEnt.TransactionCode.String)
+				tx, ctx, tournamentId, int64(userId), statusWinner, req.Position, tournamentEnt.Status, tournamentEnt.AdditionalInfo.String, tournamentParticipantPoint, tournamentEnt.TransactionCode.String)
 			if err != nil {
 				h.SendBadRequest(w, err.Error())
 				return
 			}
 
 			// Add user point for all the winners
-			err = m.AddUserPoint(tx, ctx, userId, utils.UserPointType["TOURNAMENT_TYPE_PLAY"], tournamentCode, int(badgeData.VPPoint))
+			err = m.AddUserPoint(tx, ctx, userId, utils.UserPointType["TOURNAMENT_PLAY"], tournamentCode, int(tournamentParticipantPoint))
 			if err != nil {
 				h.SendBadRequest(w, err.Error())
 				return
@@ -702,6 +702,23 @@ func (h *Contract) SetWinnerTournamentAct(w http.ResponseWriter, r *http.Request
 				log.Printf("Error : %s", err)
 			}
 		} else {
+			userId, err := m.GetUserIdByUserCode(h.DB, ctx, req.UserCode)
+			if err != nil {
+				h.SendBadRequest(w, err.Error())
+				return
+			}
+
+			tournamentEnt, err := m.GetOneTournamentParticipant(h.DB, ctx, tournamentId, int64(userId))
+			if err != nil {
+				h.SendBadRequest(w, err.Error())
+				return
+			}
+
+			if tournamentEnt.Status != "active" {
+				h.SendBadRequest(w, fmt.Sprintf("Tournament participant %s is inactive", req.UserCode))
+				return
+			}
+
 			// Update participant tournament info
 			err = m.UpdateTournamentParticipant(
 				tx, ctx, tournamentId, int64(userId), statusWinner, req.Position, tournamentEnt.Status, tournamentEnt.AdditionalInfo.String, tournamentParticipantPoint, tournamentEnt.TransactionCode.String)
@@ -710,16 +727,18 @@ func (h *Contract) SetWinnerTournamentAct(w http.ResponseWriter, r *http.Request
 				return
 			}
 
-			err = m.AddUserPoint(tx, ctx, userId, utils.UserPointType["TOURNAMENT_TYPE_PLAY"], tournamentCode, int(tournamentParticipantPoint))
+			err = m.AddUserPoint(tx, ctx, userId, utils.UserPointType["TOURNAMENT_PLAY"], tournamentCode, int(tournamentParticipantPoint))
 			if err != nil {
 				h.SendBadRequest(w, err.Error())
 				return
 			}
 		}
+
+		participantIds = append(participantIds, int64(userId))
 	}
 
-	for _, participant := range participants {
-		_ = m.AddUserGameCollections(h.DB, ctx, participant.UserId, tournamentData.GameId)
+	for _, participantId := range participantIds {
+		_ = m.AddUserGameCollections(h.DB, ctx, participantId, tournamentData.GameId)
 	}
 
 	h.SendSuccess(w, nil, nil)
@@ -868,14 +887,14 @@ func (h *Contract) BookingTournamentAct(w http.ResponseWriter, r *http.Request) 
 		statusParticipant = "active"
 
 		// Add user point from price (to log transaction event though it was free)
-		err = m.AddUserPoint(tx, ctx, int64(user.ID), utils.UserPointType["TOURNAMENT_TYPE_PAID"], transactionCode, 0)
+		err = m.AddUserPoint(tx, ctx, int64(user.ID), utils.UserPointType["TOURNAMENT_PAID"], transactionCode, 0)
 		if err != nil {
 			h.SendBadRequest(w, err.Error())
 			return
 		}
 
 		// Add user point from vp point participation (used for activity)
-		err = m.AddUserPoint(tx, ctx, int64(user.ID), utils.UserPointType["TOURNAMENT_TYPE"], trnm.TournamentCode, int(trnm.ParticipantVP))
+		err = m.AddUserPoint(tx, ctx, int64(user.ID), utils.UserPointType["TOURNAMENT_TYPE"], trnm.TournamentCode, 0)
 		if err != nil {
 			h.SendBadRequest(w, err.Error())
 			return
@@ -952,6 +971,76 @@ func (h *Contract) UpdateTournamentStatus(w http.ResponseWriter, r *http.Request
 	}
 
 	err = m.UpdateTournamentStatus(h.DB, ctx, tournamentCode, req.Status)
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		return
+	}
+
+	h.SendSuccess(w, nil, nil)
+}
+
+// Set Participant status as "Inactive" to prevent them to gain
+// points and badges from the room in case they are not present
+// when the sessions end or asks for refund.
+func (h *Contract) DeactiveTournamentParticipantAct(w http.ResponseWriter, r *http.Request) {
+	var (
+		err            error
+		ctx            = context.TODO()
+		m              = model.Contract{App: h.App}
+		tournamentCode = chi.URLParam(r, "code")
+		req            = request.TournamentParticipantRemoveReq{}
+	)
+
+	if err = h.BindAndValidate(r, &req); err != nil {
+		h.SendBindAndValidateError(w, err.Error())
+		return
+	}
+
+	tournament, err := m.GetTournamentByCode(h.DB, ctx, tournamentCode)
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		return
+	}
+
+	now := time.Now().UTC()
+	endTime, _ := time.Parse(
+		utils.DATE_TIME_FORMAT,
+		fmt.Sprintf(
+			"%s %s",
+			tournament.EndDate.Time.Format(utils.DATE_FORMAT),
+			tournament.EndTime.Format(utils.TIME_FORMAT),
+		),
+	)
+
+	parsedEndTime, _ := utils.FromGMT7LocationUTCMin7(endTime)
+
+	params := tournamentParams{TournamentStatus: tournament.Status}
+	if now.After(parsedEndTime) {
+		params.TournamentStatus = "closed"
+	}
+
+	if isTournamentClosed(w, h, params) {
+		return
+	}
+
+	user, err := m.GetUserByUserCode(h.DB, ctx, req.UserCode)
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		return
+	}
+
+	participant, err := m.GetOneTournamentParticipant(h.DB, ctx, tournament.TournamentId, int64(user.ID))
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		return
+	}
+
+	if participant.Status != "active" {
+		h.SendBadRequest(w, utils.ErrDeactiveParticipantIsInactive)
+		return
+	}
+
+	err = m.DeactiveTournamentParticipant(h.DB, ctx, tournament.TournamentId, int64(user.ID))
 	if err != nil {
 		h.SendBadRequest(w, err.Error())
 		return

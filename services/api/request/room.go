@@ -50,6 +50,10 @@ type (
 		Status string `json:"status" validate:"required"`
 	}
 
+	RoomParticipantRemoveReq struct {
+		UserCode string `json:"user_code" validate:"required"`
+	}
+
 	RoomParam struct {
 		Page     int      `json:"page"`
 		MaxPage  int      `json:"max_page"`

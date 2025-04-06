@@ -104,11 +104,11 @@ func (c *Contract) GetUniqueGame(db *pgxpool.Pool, ctx context.Context, param re
 		unique_participants AS (
 				SELECT DISTINCT r.game_id, rp.user_id, rp.created_date
 				FROM rooms r 
-				INNER JOIN rooms_participants rp ON r.id = rp.room_id AND rp.status = 'active'
+				INNER JOIN rooms_participants rp ON r.id = rp.room_id AND r.status='closed' AND rp.status = 'active'
 				UNION
 				SELECT DISTINCT t.game_id, tp.user_id, tp.created_date
 				FROM tournaments t
-				INNER JOIN tournament_participants tp ON t.id = tp.tournament_id AND tp.status = 'active'
+				INNER JOIN tournament_participants tp ON t.id = tp.tournament_id AND t.status='closed' AND tp.status = 'active'
 				UNION
 				SELECT DISTINCT game_id, user_id, created_date FROM users_game_collections
 		)

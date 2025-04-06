@@ -471,14 +471,14 @@ func (h *Contract) BookingRoom(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Add user point from price (to log transaction event though it was free)
-		err = m.AddUserPoint(tx, ctx, int64(user.ID), utils.UserPointType["ROOM_TYPE_PAID"], transactionCode, 0)
+		err = m.AddUserPoint(tx, ctx, int64(user.ID), utils.UserPointType["ROOM_PAID"], transactionCode, 0)
 		if err != nil {
 			h.SendBadRequest(w, err.Error())
 			return
 		}
 
 		// Add user point from vp point participation (used for activity)
-		err = m.AddUserPoint(tx, ctx, int64(user.ID), utils.UserPointType["ROOM_TYPE"], roomCode, room.RewardPoint)
+		err = m.AddUserPoint(tx, ctx, int64(user.ID), utils.UserPointType["ROOM_TYPE"], roomCode, 0)
 		if err != nil {
 			h.SendBadRequest(w, err.Error())
 			return
@@ -562,12 +562,6 @@ func (h *Contract) SetWinnerRoomAct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	participants, err := m.GetAllParticipantByRoomCode(h.DB, ctx, roomCode)
-	if err != nil {
-		h.SendBadRequest(w, err.Error())
-		return
-	}
-
 	params := roomParams{RoomStatus: room.Status}
 	if isRoomClosed(w, h, params) {
 		return
@@ -580,34 +574,40 @@ func (h *Contract) SetWinnerRoomAct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var participantIds []int64
 	for _, req := range reqs.RoomParticipant {
 		var statusWinner bool
-		roomId, err := m.GetRoomIdByCode(h.DB, ctx, roomCode)
-		if err != nil {
-			h.SendBadRequest(w, err.Error())
-			return
-		}
-
 		userId, err := m.GetUserIdByUserCode(h.DB, ctx, req.UserCode)
 		if err != nil {
 			h.SendBadRequest(w, err.Error())
 			return
 		}
 
-		roomParticipantEnt, err := m.GetOneRoomParticipant(h.DB, ctx, roomId, int64(userId))
+		roomParticipantEnt, err := m.GetOneRoomParticipant(h.DB, ctx, room.RoomId, int64(userId))
 		if err != nil {
-			h.SendBadRequest(w, err.Error())
-			return
+			h.Log.File().Error(err.Error(), room.RoomId, userId)
+			continue
+		}
+
+		if roomParticipantEnt.Status == "inactive" {
+			continue
 		}
 
 		if req.Position > 0 {
 			statusWinner = true
 		}
 
-		err = m.UpdateRoomParticipant(tx, ctx, roomId, int64(userId), statusWinner, roomParticipantEnt.Position, roomParticipantEnt.Status, "member", int64(roomParticipantEnt.RewardPoint.Int64), roomParticipantEnt.TransactionCode.String)
+		err = m.UpdateRoomParticipant(tx, ctx, room.RoomId, int64(userId), statusWinner, req.Position, roomParticipantEnt.Status, "member", int64(roomParticipantEnt.RewardPoint.Int64)+int64(room.RewardPoint), roomParticipantEnt.TransactionCode.String)
 		if err != nil {
-			h.SendBadRequest(w, err.Error())
-			return
+			h.Log.File().Error("handler.SetWinnerRoomAct: "+err.Error(), room.RoomId, userId)
+			continue
+		}
+
+		// Add user point from vp point participation
+		err = m.AddUserPoint(tx, ctx, int64(userId), utils.UserPointType["ROOM_PLAY"], room.RoomCode, room.RewardPoint)
+		if err != nil {
+			h.Log.File().Debug("handler.SetWinnerRoomAct: "+err.Error(), room.RoomId, userId)
+			continue
 		}
 
 		// Publisher badge
@@ -623,10 +623,11 @@ func (h *Contract) SetWinnerRoomAct(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Printf("Error : %s", err)
 		}
+		participantIds = append(participantIds, int64(userId))
 	}
 
-	for _, participant := range participants {
-		_ = m.AddUserGameCollections(h.DB, ctx, participant.UserId, room.GameId)
+	for _, participantUserId := range participantIds {
+		_ = m.AddUserGameCollections(h.DB, ctx, participantUserId, room.GameId)
 	}
 
 	h.SendSuccess(w, nil, nil)
@@ -695,6 +696,76 @@ func (h *Contract) DeleteRoom(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = m.DeleteRoomByCode(h.DB, ctx, roomCode)
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		return
+	}
+
+	h.SendSuccess(w, nil, nil)
+}
+
+// Set Participant status as "Inactive" to prevent them to gain
+// points and badges from the room in case they are not present
+// when the sessions end or asks for refund.
+func (h *Contract) DeactiveRoomParticipantAct(w http.ResponseWriter, r *http.Request) {
+	var (
+		err      error
+		ctx      = context.TODO()
+		m        = model.Contract{App: h.App}
+		roomCode = chi.URLParam(r, "code")
+		req      = request.RoomParticipantRemoveReq{}
+	)
+
+	if err = h.BindAndValidate(r, &req); err != nil {
+		h.SendBindAndValidateError(w, err.Error())
+		return
+	}
+
+	room, err := m.GetRoomByCode(h.DB, ctx, roomCode)
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		return
+	}
+
+	now := time.Now().UTC()
+	endTime, _ := time.Parse(
+		utils.DATE_TIME_FORMAT,
+		fmt.Sprintf(
+			"%s %s",
+			room.EndDate.Time.Format(utils.DATE_FORMAT),
+			room.EndTime.Format(utils.TIME_FORMAT),
+		),
+	)
+
+	parsedEndTime, _ := utils.FromGMT7LocationUTCMin7(endTime)
+
+	params := roomParams{RoomStatus: room.Status}
+	if now.After(parsedEndTime) {
+		params.RoomStatus = "closed"
+	}
+
+	if isRoomClosed(w, h, params) {
+		return
+	}
+
+	user, err := m.GetUserByUserCode(h.DB, ctx, req.UserCode)
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		return
+	}
+
+	participant, err := m.GetOneRoomParticipant(h.DB, ctx, room.RoomId, int64(user.ID))
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		return
+	}
+
+	if participant.Status != "active" {
+		h.SendBadRequest(w, utils.ErrDeactiveParticipantIsInactive)
+		return
+	}
+
+	err = m.DeactiveRoomParticipant(h.DB, ctx, room.RoomId, int64(user.ID))
 	if err != nil {
 		h.SendBadRequest(w, err.Error())
 		return

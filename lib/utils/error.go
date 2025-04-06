@@ -193,6 +193,8 @@ var (
 	ErrDeletingRoomParticipant          = "Error deleting room participant"
 	ErrGettingAllParticipantByRoomCode  = "Error getting all participant by room code"
 	ErrScanningAllParticipantByRoomCode = "Error scanning all participant by room code"
+	ErrDeactiveParticipant              = "Error deactive participant"
+	ErrDeactiveParticipantIsInactive    = "Error deactive participant, the participant is already inactive"
 
 	// Error for module tier
 	ErrGettingListTier    = "Error getting list tier"
