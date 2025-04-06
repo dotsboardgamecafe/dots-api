@@ -205,7 +205,7 @@ func (c *Contract) GetRoomList(db *pgxpool.Pool, ctx context.Context, param requ
 
 	paramQuery = append(paramQuery, param.Limit)
 	query += fmt.Sprintf(" LIMIT $%d ", len(paramQuery))
-	fmt.Println(query)
+
 	rows, err := db.Query(ctx, query, paramQuery...)
 	if err != nil {
 		return list, param, c.errHandler("model.GetRoomList", err, utils.ErrGettingListRoom)
