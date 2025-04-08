@@ -163,7 +163,7 @@ func (c *Contract) CountRoomParticipantByUserId(db *pgxpool.Pool, ctx context.Co
 			COUNT(*)
 		FROM rooms_participants rp
 		LEFT JOIN users u ON rp.user_id = u.id
-		WHERE u.id = $1 AND rp.status = 'active AND game_master_id != NULL'
+		WHERE u.id = $1 AND rp.status = 'active' AND game_master_id IS NOT NULL
 	`
 
 	err := db.QueryRow(ctx, query, userId).Scan(&count)
