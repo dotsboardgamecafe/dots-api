@@ -179,7 +179,7 @@ func AppSubsRoute(r chi.Router, app *bootstrap.App) {
 			r.With(app.VerifyAccessRoute).Put("/status", nrWrap(h.UpdateRoomStatus, app.NewRelic))
 
 			r.Route("/participants", func(r chi.Router) {
-				r.With(app.VerifyAccessRoute).Delete("/", nrWrap(h.DeactiveRoomParticipantAct, app.NewRelic))
+				r.With(app.VerifyAccessRoute).Delete("/", nrWrap(h.RemoveRoomParticipantAct, app.NewRelic))
 			})
 		})
 	})
@@ -220,7 +220,7 @@ func AppSubsRoute(r chi.Router, app *bootstrap.App) {
 			r.With(app.VerifyAccessRoute).Post("/book", nrWrap(h.BookingTournamentAct, app.NewRelic))
 
 			r.Route("/participants", func(r chi.Router) {
-				r.With(app.VerifyAccessRoute).Delete("/", nrWrap(h.DeactiveTournamentParticipantAct, app.NewRelic))
+				r.With(app.VerifyAccessRoute).Delete("/", nrWrap(h.RemoveTournamentParticipantAct, app.NewRelic))
 			})
 		})
 	})

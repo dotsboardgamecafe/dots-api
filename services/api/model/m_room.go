@@ -116,11 +116,11 @@ func (c *Contract) GetRoomList(db *pgxpool.Pool, ctx context.Context, param requ
 			FROM rooms
 				JOIN games g ON rooms.game_id = g.id 
 				JOIN cafes c ON c.id = g.cafe_id 
-				left join admins a on rooms.game_master_id = a.id
-				left join (
+				LEFT JOIN admins a on rooms.game_master_id = a.id
+				LEFT JOIN (
 					select count(rp.user_id) count_participants, rp.room_id
 					from rooms_participants rp
-					WHERE rp.status = 'active'
+					WHERE rp.status != 'cancel'
 					group by rp.room_id
 				) as cp on cp.room_id = rooms.id
 			`
@@ -273,10 +273,10 @@ func (c *Contract) GetRoomByCode(db *pgxpool.Pool, ctx context.Context, code str
 			JOIN admins a ON r.game_master_id = a.id
 			JOIN games g ON r.game_id = g.id 
 			JOIN cafes c ON c.id = g.cafe_id  
-			left join (
+			LEFT JOIN (
 				select count(rp.user_id) count_participants, rp.room_id
 				from rooms_participants rp
-				WHERE rp.status = 'active'
+				WHERE rp.status != 'cancel'
 				group by rp.room_id
 			) as cp on cp.room_id = r.id
 		WHERE room_code = $1 AND r.deleted_date IS NULL`

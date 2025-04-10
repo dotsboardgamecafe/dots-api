@@ -278,7 +278,7 @@ func (c *Contract) CountParticipantRoomByRoomId(db *pgxpool.Pool, ctx context.Co
 		totalParticipant int
 
 		queryGetTotalParticipant = `select count(id) from rooms_participants rp 
-		where room_id = $1 AND rp.status = 'active'
+		where room_id = $1 AND rp.status != 'cancel'
 		group by room_id `
 	)
 

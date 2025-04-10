@@ -120,6 +120,36 @@ func (c *Contract) AddUserPoint(tx pgx.Tx, ctx context.Context, userId int64, da
 	return nil
 }
 
+func (c *Contract) RemoveUserPoint(tx pgx.Tx, ctx context.Context, userId int64, dataSource string, sourceCode string, point int) error {
+	var (
+		err   error
+		query = `DELETE FROM users_points WHERE user_id = $1 AND data_source = $2 AND source_code = $3`
+	)
+
+	_, err = tx.Exec(ctx, query, userId, dataSource, sourceCode)
+	if err != nil {
+		return c.errHandler("model.RemoveUserPoint", err, utils.ErrRemovingUserPoint)
+	}
+
+	// if point is greater than 0 it should
+	// calculate user latest_point
+	if point > 0 {
+		// Get latest point
+		_, currentUserPoint, _, _ := c.GetLatestPointAndTier(tx, ctx, userId)
+
+		// Calculate total point and define latest tier
+		finalTotalPoint := currentUserPoint - point
+		sqlUpdatePointAndTier := `UPDATE users SET latest_point = $1 WHERE id = $2;`
+
+		_, err = tx.Exec(ctx, sqlUpdatePointAndTier, finalTotalPoint, userId)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (c *Contract) GetCurrentUserTotalPoint(db *pgxpool.Pool, ctx context.Context, userId int) (int, error) {
 	var (
 		TotalPoint int

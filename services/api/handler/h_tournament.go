@@ -675,14 +675,14 @@ func (h *Contract) SetWinnerTournamentAct(w http.ResponseWriter, r *http.Request
 
 			// Update participant tournament info
 			err = m.UpdateTournamentParticipant(
-				tx, ctx, tournamentId, int64(userId), statusWinner, req.Position, tournamentEnt.Status, tournamentEnt.AdditionalInfo.String, tournamentParticipantPoint, tournamentEnt.TransactionCode.String)
+				tx, ctx, tournamentId, int64(userId), statusWinner, req.Position, tournamentEnt.Status, tournamentEnt.AdditionalInfo.String, tournamentEnt.RewardPoint.Int64, tournamentEnt.TransactionCode.String)
 			if err != nil {
 				h.SendBadRequest(w, err.Error())
 				return
 			}
 
 			// Add user point for all the winners
-			err = m.AddUserPoint(tx, ctx, userId, utils.UserPointType["TOURNAMENT_PLAY"], tournamentCode, int(tournamentParticipantPoint))
+			err = m.AddUserPoint(tx, ctx, userId, utils.UserPointType["TOURNAMENT_PLAY"], tournamentCode, int(tournamentEnt.RewardPoint.Int64))
 			if err != nil {
 				h.SendBadRequest(w, err.Error())
 				return
@@ -982,7 +982,7 @@ func (h *Contract) UpdateTournamentStatus(w http.ResponseWriter, r *http.Request
 // Set Participant status as "Inactive" to prevent them to gain
 // points and badges from the room in case they are not present
 // when the sessions end or asks for refund.
-func (h *Contract) DeactiveTournamentParticipantAct(w http.ResponseWriter, r *http.Request) {
+func (h *Contract) RemoveTournamentParticipantAct(w http.ResponseWriter, r *http.Request) {
 	var (
 		err            error
 		ctx            = context.TODO()
@@ -1035,15 +1035,54 @@ func (h *Contract) DeactiveTournamentParticipantAct(w http.ResponseWriter, r *ht
 		return
 	}
 
-	if participant.Status != "active" {
+	if participant.Status == "inactive" {
 		h.SendBadRequest(w, utils.ErrDeactiveParticipantIsInactive)
 		return
 	}
 
-	err = m.DeactiveTournamentParticipant(h.DB, ctx, tournament.TournamentId, int64(user.ID))
+	// Start a transaction
+	tx, err := h.DB.Begin(ctx)
 	if err != nil {
 		h.SendBadRequest(w, err.Error())
 		return
+	}
+	defer func() {
+		if err != nil {
+			tx.Rollback(ctx)
+		}
+		tx.Commit(ctx)
+	}()
+
+	trx, err := m.GetTransactionBySourceCode(h.DB, ctx, user.UserCode, utils.UserPointType["TOURNAMENT_TYPE"], tournamentCode)
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		return
+	}
+
+	err = m.DeleteTournamentParticipant(tx, ctx, tournament.TournamentId, int64(user.ID))
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		return
+	}
+
+	err = m.RemoveUserPoint(tx, ctx, int64(user.ID), utils.UserPointType["TOURNAMENT_TYPE"], tournamentCode, 0)
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		return
+	}
+
+	if tournament.BookingPrice <= 0 {
+		err = m.RemoveUserPoint(tx, ctx, int64(user.ID), utils.UserPointType["TOURNAMENT_PAID"], trx.TransactionCode, 0)
+		if err != nil {
+			h.SendBadRequest(w, err.Error())
+			return
+		}
+
+		err = m.UpdateInvoiceTrx(tx, ctx, trx.AggregatorCode, "", utils.PaymentStatus["EXPIRED"], "")
+		if err != nil {
+			h.SendBadRequest(w, err.Error())
+			return
+		}
 	}
 
 	h.SendSuccess(w, nil, nil)

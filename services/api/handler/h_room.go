@@ -449,12 +449,10 @@ func (h *Contract) BookingRoom(w http.ResponseWriter, r *http.Request) {
 	var (
 		statusParticipant, transactionCode, invoiceUrl string
 		expiredAt                                      time.Time
-		earnedPoint                                    int64
 	)
 
 	statusParticipant = "pending"
 	if room.BookingPrice > 0 {
-		earnedPoint = int64(utils.CalculateUserRedeemPoint(room.BookingPrice))
 		//call xendit
 		_, transactionCode, invoiceUrl, expiredAt, err = m.CreateOneTimeInvoice(tx, ctx, int64(user.ID), utils.UserPointType["ROOM_TYPE"], roomCode, room.BookingPrice, fmt.Sprintf("INVOICE-%s-%s", userCode, roomCode), user.Email.String)
 		if err != nil {
@@ -462,7 +460,6 @@ func (h *Contract) BookingRoom(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		earnedPoint = int64(utils.CalculateUserRedeemPoint(room.BookingPrice))
 		//call xendit
 		_, transactionCode, invoiceUrl, expiredAt, err = m.CreateFreeInvoice(tx, ctx, int64(user.ID), utils.UserPointType["ROOM_TYPE"], roomCode, room.BookingPrice, fmt.Sprintf("INVOICE-%s-%s", userCode, roomCode), user.Email.String)
 		if err != nil {
@@ -505,14 +502,14 @@ func (h *Contract) BookingRoom(w http.ResponseWriter, r *http.Request) {
 	// check if exist
 	if len(participant.UserCode) > 0 && participant.Status != "active" {
 		//update status
-		err = m.UpdateRoomParticipant(tx, ctx, room.RoomId, int64(user.ID), false, participant.Position, statusParticipant, participant.AdditionalInfo.String, earnedPoint, transactionCode)
+		err = m.UpdateRoomParticipant(tx, ctx, room.RoomId, int64(user.ID), false, participant.Position, statusParticipant, participant.AdditionalInfo.String, participant.RewardPoint.Int64, transactionCode)
 		if err != nil {
 			h.SendBadRequest(w, err.Error())
 			return
 		}
 	} else {
 		//add participant
-		err = m.InsertOneRoomParticipant(tx, ctx, room.RoomId, int64(user.ID), statusParticipant, earnedPoint, transactionCode)
+		err = m.InsertOneRoomParticipant(tx, ctx, room.RoomId, int64(user.ID), statusParticipant, participant.RewardPoint.Int64, transactionCode)
 		if err != nil {
 			h.SendBadRequest(w, err.Error())
 			return
@@ -707,7 +704,7 @@ func (h *Contract) DeleteRoom(w http.ResponseWriter, r *http.Request) {
 // Set Participant status as "Inactive" to prevent them to gain
 // points and badges from the room in case they are not present
 // when the sessions end or asks for refund.
-func (h *Contract) DeactiveRoomParticipantAct(w http.ResponseWriter, r *http.Request) {
+func (h *Contract) RemoveRoomParticipantAct(w http.ResponseWriter, r *http.Request) {
 	var (
 		err      error
 		ctx      = context.TODO()
@@ -760,15 +757,55 @@ func (h *Contract) DeactiveRoomParticipantAct(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	if participant.Status != "active" {
+	if participant.Status == "inactive" {
 		h.SendBadRequest(w, utils.ErrDeactiveParticipantIsInactive)
 		return
 	}
 
-	err = m.DeactiveRoomParticipant(h.DB, ctx, room.RoomId, int64(user.ID))
+	tx, err := h.DB.Begin(ctx)
 	if err != nil {
 		h.SendBadRequest(w, err.Error())
 		return
+	}
+	// For transaction
+	defer func() {
+		if err != nil {
+			tx.Rollback(ctx)
+			return
+		}
+		tx.Commit(ctx)
+	}()
+
+	trx, err := m.GetTransactionBySourceCode(h.DB, ctx, user.UserCode, utils.UserPointType["ROOM_TYPE"], roomCode)
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		return
+	}
+
+	err = m.DeleteRoomParticipant(tx, ctx, room.RoomId, int64(user.ID))
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		return
+	}
+
+	err = m.RemoveUserPoint(tx, ctx, int64(user.ID), utils.UserPointType["ROOM_TYPE"], roomCode, 0)
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		return
+	}
+
+	if room.BookingPrice <= 0 {
+		err = m.RemoveUserPoint(tx, ctx, int64(user.ID), utils.UserPointType["ROOM_PAID"], trx.TransactionCode, 0)
+		if err != nil {
+			h.SendBadRequest(w, err.Error())
+			return
+		}
+
+		err = m.UpdateInvoiceTrx(tx, ctx, trx.AggregatorCode, "", utils.PaymentStatus["EXPIRED"], "")
+		if err != nil {
+			h.SendBadRequest(w, err.Error())
+			return
+		}
 	}
 
 	h.SendSuccess(w, nil, nil)

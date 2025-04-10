@@ -197,6 +197,57 @@ func (c *Contract) GetTransactionByCode(db *pgxpool.Pool, ctx context.Context, u
 	return data, nil
 }
 
+func (c *Contract) GetTransactionBySourceCode(db *pgxpool.Pool, ctx context.Context, userCode string, dataSource, sourceCode string) (UserTransactionEnt, error) {
+	var (
+		err   error
+		data  UserTransactionEnt
+		query = `SELECT users_transactions.id AS id,
+			transaction_code,
+			users_transactions.aggregator_code,
+			users_transactions.data_source,
+			games.game_code AS game_code,
+			games.name AS game_name,
+			users_transactions.price  AS final_price_amount,
+			COALESCE(users_points.point, 0) AS awarded_user_point,
+			payment_method,
+			payment_link,
+			users_transactions.status,
+			users_transactions.created_date,
+			users_transactions.updated_date,
+			users_transactions.expired_date
+		FROM users_transactions
+			JOIN users ON users.id = users_transactions.user_id
+			LEFT JOIN rooms ON rooms.room_code  = users_transactions.source_code and users_transactions.data_source = 'room'
+			LEFT JOIN tournaments ON tournaments.tournament_code  = users_transactions.source_code and users_transactions.data_source = 'tournament'
+			JOIN games ON games.id = rooms.game_id OR games.id = tournaments.game_id
+			LEFT JOIN users_points ON users_transactions.source_code = users_points.source_code AND users_points.user_id = users.id
+    	WHERE users.user_code = $1 AND users_transactions.data_source = $2 AND users_transactions.source_code = $3`
+	)
+
+	err = db.QueryRow(ctx, query, userCode, dataSource, sourceCode).Scan(
+		&data.Id,
+		&data.TransactionCode,
+		&data.AggregatorCode,
+		&data.DataSource,
+		&data.GameCode,
+		&data.GameName,
+		&data.Price,
+		&data.AwardedUserPoint,
+		&data.PaymentMethod,
+		&data.PaymentLink,
+		&data.Status,
+		&data.CreatedDate,
+		&data.UpdatedDate,
+		&data.ExpiredDate,
+	)
+
+	if err != nil {
+		return data, c.errHandler("model.GetTransactionBySourceCode", err, utils.ErrGettingtUserTransactionDetailCode)
+	}
+
+	return data, nil
+}
+
 func (c *Contract) CreateOneTimeInvoice(tx pgx.Tx, ctx context.Context, userId int64, dataSource string, sourceCode string, price float64, titleSubs string, email string) (int64, string, string, time.Time, error) {
 	var (
 		err             error
