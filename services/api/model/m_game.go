@@ -331,7 +331,7 @@ func (c *Contract) GetGameByCode(db *pgxpool.Pool, ctx context.Context, code str
 				))
 				FROM games g2
 					JOIN cafes c2 ON c2.id = g2.cafe_id
-				WHERE g2.id <> g1.id
+				WHERE g2.id <> g1.id AND g2.cafe_id = g1.cafe_id
 				AND EXISTS (
 					SELECT 1 
 					FROM games_categories gc1
