@@ -293,7 +293,7 @@ func (c *Contract) GetUserList(db *pgxpool.Pool, ctx context.Context, param requ
 		var orWhere []string
 		paramQuery = append(paramQuery, "%"+param.Keyword+"%")
 		orWhere = append(orWhere, fmt.Sprintf("fullname iLIKE $%d", len(paramQuery)))
-		orWhere = append(orWhere, fmt.Sprintf("email iLIKE $%d", len(paramQuery)))
+		orWhere = append(orWhere, fmt.Sprintf("username iLIKE $%d", len(paramQuery)))
 		where = append(where, "("+strings.Join(orWhere, " OR ")+")")
 	}
 
