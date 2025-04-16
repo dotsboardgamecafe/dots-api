@@ -8,6 +8,7 @@ import (
 	"dots-api/services/api/model"
 	"dots-api/services/api/request"
 	"dots-api/services/api/response"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -239,6 +240,12 @@ func (h *Contract) AddRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	gameEnt, err := m.GetGameByCode(h.DB, ctx, req.GameCode)
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		return
+	}
+
 	// Get Game Id
 	gameId, err := m.GetGameIdByCode(h.DB, ctx, req.GameCode)
 	if err != nil {
@@ -273,6 +280,45 @@ func (h *Contract) AddRoom(w http.ResponseWriter, r *http.Request) {
 		h.SendBadRequest(w, err.Error())
 		return
 	}
+
+	go func() {
+		dataListUser, err := m.GetAllUsers(m.DB, ctx)
+		if err != nil {
+			h.SendBadRequest(w, err.Error())
+			return
+		}
+		notificationType := utils.UpcomingSession
+		if req.RoomType == utils.RoomType[1] {
+			notificationType = utils.UpcomingEvent
+		}
+
+		for _, user := range dataListUser {
+
+			// Generate Notification code
+			notifCode := utils.GeneratePrefixCode(utils.NotifPrefix)
+
+			description := response.NotificationTournamentResp{
+				StartDate:   req.StartDate,
+				StartTime:   req.StartTime,
+				EndTime:     req.EndTime,
+				CafeName:    gameEnt.CafeName,
+				GameName:    gameEnt.Name,
+				CafeAddress: gameEnt.CafeAddress,
+				Level:       req.Difficulty,
+			}
+
+			descriptionJSON, err := json.Marshal(description)
+			if err != nil {
+				fmt.Println("h.AddRoom.UpcomingEvent: ", err.Error())
+			}
+
+			// Insert data into db
+			err = m.AddNotification(m.DB, ctx, notifCode, "user", user.UserCode, code, notificationType, req.Name, descriptionJSON, req.ImageURL)
+			if err != nil {
+				fmt.Println("h.AddRoom.UpcomingEvent: ", err.Error())
+			}
+		}
+	}()
 
 	h.SendSuccess(w, nil, nil)
 }
@@ -607,25 +653,35 @@ func (h *Contract) SetWinnerRoomAct(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		// Publisher badge
-		queueData := rabbit.QueueDataPayload(
-			rabbit.QueueUserBadge,
-			rabbit.QueueUserBadgeReq(
-				utils.SpesificBoardGameCategory,
-				int64(userId),
-			),
-		)
-		queueHost := m.Config.GetString("queue.rabbitmq.host")
-		err = rabbit.PublishQueue(ctx, queueHost, queueData)
-		if err != nil {
-			log.Printf("Error : %s", err)
-		}
+		go func(ctx context.Context, userID int64) {
+			// Publisher badge
+			queueData := rabbit.QueueDataPayload(
+				rabbit.QueueUserBadge,
+				rabbit.QueueUserBadgeReq(
+					utils.SpesificBoardGameCategory,
+					int64(userID),
+				),
+			)
+			queueHost := m.Config.GetString("queue.rabbitmq.host")
+			err = rabbit.PublishQueue(ctx, queueHost, queueData)
+			if err != nil {
+				log.Printf("Error : %s", err)
+			}
+		}(ctx, int64(userId))
 		participantIds = append(participantIds, int64(userId))
 	}
 
-	for _, participantUserId := range participantIds {
-		_ = m.AddUserGameCollections(h.DB, ctx, participantUserId, room.GameId)
+	go func(ctx context.Context, participantIds []int64, gameId int64) {
+		for _, participantUserId := range participantIds {
+			_ = m.AddUserGameCollections(h.DB, ctx, participantUserId, gameId)
+		}
+	}(ctx, participantIds, room.GameId)
+
+	notificationType := utils.UpcomingSession
+	if room.RoomType == utils.RoomType[1] {
+		notificationType = utils.UpcomingEvent
 	}
+	go removeUpcomingRoomNotification(&m, ctx, roomCode, notificationType)
 
 	h.SendSuccess(w, nil, nil)
 }
@@ -666,6 +722,54 @@ func (h *Contract) UpdateRoomStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.Status == utils.StatusRoom[1] {
+		notificationType := utils.UpcomingSession
+		if room.RoomType == utils.RoomType[1] {
+			notificationType = utils.UpcomingEvent
+		}
+		go removeUpcomingRoomNotification(&m, ctx, roomCode, notificationType)
+	} else {
+		go func() {
+			dataListUser, err := m.GetAllUsers(m.DB, ctx)
+			if err != nil {
+				h.SendBadRequest(w, err.Error())
+				return
+			}
+			notificationType := utils.UpcomingSession
+			if room.RoomType == utils.RoomType[1] {
+				notificationType = utils.UpcomingEvent
+			}
+
+			for _, user := range dataListUser {
+
+				// Generate Notification code
+				notifCode := utils.GeneratePrefixCode(utils.NotifPrefix)
+
+				description := response.NotificationTournamentResp{
+					StartDate:   room.StartDate.Time.String(),
+					StartTime:   room.StartTime.String(),
+					EndTime:     room.EndTime.String(),
+					CafeName:    room.CafeName,
+					GameName:    room.Name,
+					CafeAddress: room.CafeAddress,
+					Level:       room.Difficulty,
+				}
+
+				descriptionJSON, err := json.Marshal(description)
+				if err != nil {
+					fmt.Println("h.AddRoom.UpcomingEvent: ", err.Error())
+				}
+
+				// Insert data into db
+				err = m.AddNotification(m.DB, ctx, notifCode, "user", user.UserCode, room.RoomCode, notificationType, room.Name, descriptionJSON, room.BannerRoomUrl)
+				if err != nil {
+					fmt.Println("h.AddRoom.UpcomingEvent: ", err.Error())
+				}
+
+			}
+		}()
+	}
+
 	h.SendSuccess(w, nil, nil)
 }
 
@@ -697,6 +801,12 @@ func (h *Contract) DeleteRoom(w http.ResponseWriter, r *http.Request) {
 		h.SendBadRequest(w, err.Error())
 		return
 	}
+
+	notificationType := utils.UpcomingSession
+	if room.RoomType == utils.RoomType[1] {
+		notificationType = utils.UpcomingEvent
+	}
+	go removeUpcomingRoomNotification(&m, ctx, roomCode, notificationType)
 
 	h.SendSuccess(w, nil, nil)
 }
@@ -856,4 +966,11 @@ func isThereAnyRoomParticipants(w http.ResponseWriter, h *Contract, currentParti
 	message := fmt.Sprintf("Cannot delete room because there are %d participants in this room", currentParticipant)
 	h.SendBadRequest(w, message)
 	return true
+}
+
+func removeUpcomingRoomNotification(m *model.Contract, ctx context.Context, roomCode, notificationType string) {
+	err := m.DeleteNotification(m.DB, ctx, roomCode, notificationType)
+	if err != nil {
+		fmt.Println("h.removeUpcomingRoomNotification: ", err.Error())
+	}
 }

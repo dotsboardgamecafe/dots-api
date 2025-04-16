@@ -147,3 +147,14 @@ func (c *Contract) GetListNotifications(db *pgxpool.Pool, ctx context.Context, p
 
 	return list, param, nil
 }
+
+func (c *Contract) DeleteNotification(db *pgxpool.Pool, ctx context.Context, transactionCode, notificationType string) error {
+	sql := `DELETE FROM notifications WHERE transaction_code = $1 AND "type" = $2`
+
+	_, err := db.Exec(ctx, sql, transactionCode, notificationType)
+	if err != nil {
+		return c.errHandler("model.DeleteNotification", err, utils.ErrDeletingNotificationByTransactionAndType)
+	}
+
+	return nil
+}

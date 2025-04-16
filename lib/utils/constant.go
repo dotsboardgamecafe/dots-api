@@ -77,6 +77,8 @@ var (
 
 	// Notification title
 	UpcomingTournament  = "upcoming_tournament"
+	UpcomingEvent       = "upcoming_event"
+	UpcomingSession     = "upcoming_session"
 	BookingConfirmation = "booking_confirmation"
 	CanceledRoom        = "canceled_room"
 	LevelUp             = "level_up"

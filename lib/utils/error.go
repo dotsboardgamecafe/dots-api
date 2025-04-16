@@ -98,12 +98,13 @@ var (
 	ErrUpdatingCafe          = "Error updating cafe by code"
 
 	// Error for module notification
-	ErrCountingListNotification  = "Error counting list notification"
-	ErrGettingListNotification   = "Error getting list notification"
-	ErrScanningListNotification  = "Error scanning list notification"
-	ErrAddingNotification        = "Error adding notification"
-	ErrGettingNotificationByCode = "Error getting notification by code"
-	ErrUpdatingNotification      = "Error updating notification by code"
+	ErrCountingListNotification                 = "Error counting list notification"
+	ErrGettingListNotification                  = "Error getting list notification"
+	ErrScanningListNotification                 = "Error scanning list notification"
+	ErrAddingNotification                       = "Error adding notification"
+	ErrGettingNotificationByCode                = "Error getting notification by code"
+	ErrUpdatingNotification                     = "Error updating notification by code"
+	ErrDeletingNotificationByTransactionAndType = "Error Deleting notification by transaction code and type"
 
 	// Error for module game
 	ErrCountingListGame    = "Error counting list game"

@@ -1,0 +1,2 @@
+DROP INDEX IF EXISTS notifications_code_idx;
+DROP INDEX IF EXISTS notifications_transaction_code_and_type_idx;

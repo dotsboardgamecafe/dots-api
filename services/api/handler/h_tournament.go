@@ -416,7 +416,7 @@ func (h *Contract) AddTournamentAct(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Insert data into db
-		err = m.AddNotification(m.DB, ctx, notifCode, "user", user.UserCode, tournamentCode, "tournament_reminder", req.Name, descriptionJSON, req.ImageUrl)
+		err = m.AddNotification(m.DB, ctx, notifCode, "user", user.UserCode, tournamentCode, utils.TournamentReminder, req.Name, descriptionJSON, req.ImageUrl)
 		if err != nil {
 			h.SendBadRequest(w, err.Error())
 			return
@@ -503,7 +503,7 @@ func (h *Contract) UpdateTournamentAct(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	tournamentId, err := m.GetTournamentIdByCode(h.DB, ctx, tournamentCode)
+	tournament, err := m.GetTournamentByCode(h.DB, ctx, tournamentCode)
 	if err != nil {
 		h.SendBadRequest(w, err.Error())
 		return
@@ -524,7 +524,7 @@ func (h *Contract) UpdateTournamentAct(w http.ResponseWriter, r *http.Request) {
 
 	if req.Status == "inactive" {
 		// Get current total participant
-		totalParticipant, err := m.CountParticipantTournamentByTournamentId(h.DB, ctx, tournamentId)
+		totalParticipant, err := m.CountParticipantTournamentByTournamentId(h.DB, ctx, tournament.TournamentId)
 		if err != nil {
 			h.SendBadRequest(w, err.Error())
 			return
@@ -550,7 +550,7 @@ func (h *Contract) UpdateTournamentAct(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Delete existing badges
-	err = m.DeleteTournamentBadge(tx, ctx, tournamentId)
+	err = m.DeleteTournamentBadge(tx, ctx, tournament.TournamentId)
 	if err != nil {
 		h.SendBadRequest(w, err.Error())
 		return
@@ -564,12 +564,53 @@ func (h *Contract) UpdateTournamentAct(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		_, err = m.InsertTournamentBadge(tx, ctx, tournamentId, badgeID)
+		_, err = m.InsertTournamentBadge(tx, ctx, tournament.TournamentId, badgeID)
 		if err != nil {
 			h.SendBadRequest(w, err.Error())
 			return
 		}
 	}
+
+	if req.Status == utils.StatusTournament[1] {
+		go removeUpcomingRoomNotification(&m, ctx, tournamentCode, utils.TournamentReminder)
+	} else {
+		dataListUser, err := m.GetAllUsers(m.DB, ctx)
+		if err != nil {
+			h.SendBadRequest(w, err.Error())
+			return
+		}
+
+		for _, user := range dataListUser {
+
+			// Generate Notification code
+			notifCode := utils.GeneratePrefixCode(utils.NotifPrefix)
+
+			description := response.NotificationTournamentResp{
+				StartDate:   req.StartDate,
+				StartTime:   req.StartTime,
+				EndTime:     req.EndTime,
+				CafeName:    tournament.CafeName,
+				GameName:    tournament.GameName,
+				CafeAddress: tournament.CafeAddress,
+				Level:       req.Level,
+			}
+
+			descriptionJSON, err := json.Marshal(description)
+			if err != nil {
+				h.SendBadRequest(w, utils.ErrMarshalData)
+				return
+			}
+
+			// Insert data into db
+			err = m.AddNotification(m.DB, ctx, notifCode, "user", user.UserCode, tournamentCode, utils.TournamentReminder, req.Name, descriptionJSON, req.ImageUrl)
+			if err != nil {
+				h.SendBadRequest(w, err.Error())
+				return
+			}
+
+		}
+	}
+
 	h.SendSuccess(w, nil, nil)
 }
 
@@ -688,19 +729,20 @@ func (h *Contract) SetWinnerTournamentAct(w http.ResponseWriter, r *http.Request
 				return
 			}
 
-			// Publisher badge
-			queueData := rabbit.QueueDataPayload(
-				rabbit.QueueUserBadge,
-				rabbit.QueueUserBadgeReq(
-					utils.SpesificBoardGameCategory,
-					int64(userId),
-				),
-			)
-			queueHost := m.Config.GetString("queue.rabbitmq.host")
-			err = rabbit.PublishQueue(ctx, queueHost, queueData)
-			if err != nil {
-				log.Printf("Error : %s", err)
-			}
+			go func(userID int64) { // Publisher badge
+				queueData := rabbit.QueueDataPayload(
+					rabbit.QueueUserBadge,
+					rabbit.QueueUserBadgeReq(
+						utils.SpesificBoardGameCategory,
+						userID,
+					),
+				)
+				queueHost := m.Config.GetString("queue.rabbitmq.host")
+				err = rabbit.PublishQueue(ctx, queueHost, queueData)
+				if err != nil {
+					log.Printf("Error : %s", err)
+				}
+			}(userId)
 		} else {
 			userId, err := m.GetUserIdByUserCode(h.DB, ctx, req.UserCode)
 			if err != nil {
@@ -741,6 +783,8 @@ func (h *Contract) SetWinnerTournamentAct(w http.ResponseWriter, r *http.Request
 		_ = m.AddUserGameCollections(h.DB, ctx, participantId, tournamentData.GameId)
 	}
 
+	go removeUpcomingRoomNotification(&m, ctx, tournamentCode, utils.TournamentReminder)
+
 	h.SendSuccess(w, nil, nil)
 }
 
@@ -772,6 +816,8 @@ func (h *Contract) DeleteTournamentAct(w http.ResponseWriter, r *http.Request) {
 		h.SendBadRequest(w, err.Error())
 		return
 	}
+
+	go removeUpcomingRoomNotification(&m, ctx, tournamentCode, utils.TournamentReminder)
 
 	h.SendSuccess(w, nil, nil)
 }
