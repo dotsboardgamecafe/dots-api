@@ -118,12 +118,13 @@ func (c *Contract) GetTierByPoinCriteria(tx pgx.Tx, ctx context.Context, point i
 		data  TierEnt
 		query = `SELECT 
 			COALESCE(tiers.id, 4) AS id, 
-			COALESCE(tiers.name, 'Legend') AS name
+			COALESCE(tiers.name, 'Legend') AS name,
+			COALESCE(tiers.tier_code, '') AS tier_code
 		FROM (SELECT 1)
 		LEFT JOIN tiers ON $1 BETWEEN tiers.min_point AND tiers.max_point;`
 	)
 
-	_ = tx.QueryRow(ctx, query, point).Scan(&data.Id, &data.Name)
+	_ = tx.QueryRow(ctx, query, point).Scan(&data.Id, &data.Name, &data.TierCode)
 
 	return data, nil
 }

@@ -63,7 +63,7 @@ func (c *Contract) AddUserPoint(tx pgx.Tx, ctx context.Context, userId int64, da
 		// Generate Notification code
 		notifCode := utils.GeneratePrefixCode(utils.NotifPrefix)
 
-		description := "Anda sekarang berada di tingkat/tier baru! Selamat datang di" + finalTier.Name + "yang lebih tinggi dengan akses lebih banyak fitur dan manfaat eksklusif."
+		description := "Anda sekarang berada di tingkat/tier baru! Selamat datang di " + finalTier.Name + "yang lebih tinggi dengan akses lebih banyak fitur dan manfaat eksklusif."
 
 		descriptionJSON, err := json.Marshal(description)
 		if err != nil {
