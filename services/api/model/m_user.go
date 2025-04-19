@@ -627,7 +627,7 @@ func (c *Contract) GetUserPointActivities(db *pgxpool.Pool, ctx context.Context,
 		query = `SELECT
     		u.id,
 				COALESCE(u.username, '') AS username,
-				COALESCE(u.styles, '') AS user_style,
+				COALESCE(u.styles, '{}') AS user_style,
 				COALESCE(CASE
 					-- Room type (normal and special_event)
 					WHEN (up.data_source = 'room') THEN (
