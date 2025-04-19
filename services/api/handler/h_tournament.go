@@ -171,6 +171,7 @@ func (h *Contract) GetTournamentDetailAct(w http.ResponseWriter, r *http.Request
 			UserCode:       participant.UserCode,
 			UserName:       participant.UserName,
 			UserImgUrl:     participant.UserImgUrl,
+			UserStyle:      response.UserStyleRes{Color: participant.UserStyle.Color},
 			StatusWinner:   participant.StatusWinner,
 			Status:         participant.Status,
 			AdditionalInfo: participant.AdditionalInfo.String,

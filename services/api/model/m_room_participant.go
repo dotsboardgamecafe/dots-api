@@ -27,6 +27,7 @@ type (
 		UserCode           string         `db:"user_code"`
 		UserName           string         `db:"user_name"`
 		UserImgUrl         string         `db:"user_image_url"`
+		UserStyle          UserStyle      `db:"user_style"`
 		UserXPlayer        string         `db:"user_x_player"`
 		StatusWinner       bool           `db:"status_winner"`
 		Status             string         `db:"status"`
@@ -50,6 +51,7 @@ func (c *Contract) GetAllParticipantByRoomCode(db *pgxpool.Pool, ctx context.Con
 			u.user_code AS user_code,
 			COALESCE(u.username, '') AS user_name,
 			u.image_url AS user_image_url,
+			u.styles AS user_style,
 			u.x_player AS user_x_player, 
 			rp.status_winner,
 			rp.status,
@@ -73,7 +75,7 @@ func (c *Contract) GetAllParticipantByRoomCode(db *pgxpool.Pool, ctx context.Con
 	for rows.Next() {
 		var data RoomParticipantResp
 		err = rows.Scan(
-			&data.UserCode, &data.UserName, &data.UserImgUrl, &data.UserXPlayer,
+			&data.UserCode, &data.UserName, &data.UserImgUrl, &data.UserStyle, &data.UserXPlayer,
 			&data.StatusWinner, &data.Status,
 			&data.Position, &data.AdditionalInfo, &data.RewardPoint,
 			&data.LatestTier,
@@ -96,6 +98,7 @@ func (c *Contract) GetParticipantByRoomCodeAndUserCode(db *pgxpool.Pool, ctx con
 		u.user_code AS user_code,
 		u.username AS user_name,
 		u.image_url AS user_image_url,
+		u.styles AS user_style,
 		u.x_player AS user_x_player, 
 		rp.status_winner,
 		rp.status,
@@ -113,7 +116,7 @@ func (c *Contract) GetParticipantByRoomCodeAndUserCode(db *pgxpool.Pool, ctx con
 	)
 
 	err = db.QueryRow(ctx, queryGetRoomGameDetail, roomCode, userCode).Scan(
-		&data.UserCode, &data.UserName, &data.UserImgUrl, &data.UserXPlayer,
+		&data.UserCode, &data.UserName, &data.UserImgUrl, &data.UserStyle, &data.UserXPlayer,
 		&data.StatusWinner, &data.Status, &data.TransactionCode,
 		&data.RoomId, &data.UserId, &data.ParticipationPoint, &data.LatestTier, &data.RoomBannerUri,
 	)

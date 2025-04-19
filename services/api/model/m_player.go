@@ -11,26 +11,28 @@ import (
 )
 
 type HallOfFameEnt struct {
-	UserCode            string `db:"user_code"`
-	UserFullName        string `db:"user_fullname"`
-	UserName            string `db:"user_name"`
-	UserImgUrl          string `db:"user_img_url"`
-	TournamentBannerUrl string `db:"tournament_banner_url"`
-	TournamentName      string `db:"tournament_name"`
-	CafeName            string `db:"cafe_name"`
-	CafeAddress         string `db:"cafe_address"`
+	UserCode            string    `db:"user_code"`
+	UserFullName        string    `db:"user_fullname"`
+	UserName            string    `db:"user_name"`
+	UserImgUrl          string    `db:"user_img_url"`
+	UserStyle           UserStyle `db:"user_style"`
+	TournamentBannerUrl string    `db:"tournament_banner_url"`
+	TournamentName      string    `db:"tournament_name"`
+	CafeName            string    `db:"cafe_name"`
+	CafeAddress         string    `db:"cafe_address"`
 }
 
 type MonthlyTopAchieverEnt struct {
-	Ranking         int    `db:"rank"`
-	UserCode        string `db:"user_code"`
-	UserFullName    string `db:"user_fullname"`
-	UserName        string `db:"user_name"`
-	UserImgUrl      string `db:"user_img_url"`
-	CafeCode        string `db:"cafe_code"`
-	Location        string `db:"location"`
-	TotalPoint      int    `db:"total_point"`
-	TotalGamePlayed int    `db:"total_game_played"`
+	Ranking         int       `db:"rank"`
+	UserCode        string    `db:"user_code"`
+	UserFullName    string    `db:"user_fullname"`
+	UserName        string    `db:"user_name"`
+	UserImgUrl      string    `db:"user_img_url"`
+	UserStyle       UserStyle `db:"user_style"`
+	CafeCode        string    `db:"cafe_code"`
+	Location        string    `db:"location"`
+	TotalPoint      int       `db:"total_point"`
+	TotalGamePlayed int       `db:"total_game_played"`
 }
 
 func (c *Contract) GetHallOfFameList(db *pgxpool.Pool, ctx context.Context, param request.HallOfFameParam) ([]HallOfFameEnt, request.HallOfFameParam, error) {
@@ -44,6 +46,7 @@ func (c *Contract) GetHallOfFameList(db *pgxpool.Pool, ctx context.Context, para
 			COALESCE(u.username, '') AS user_name,
 			u.fullname AS user_fullname,
 			u.image_url AS user_img_url,
+			u.styles AS user_style,
 			g.image_url AS tournament_banner_url,
 			t.name AS tournament_name,
 			c.address AS cafe_address,
@@ -77,6 +80,7 @@ func (c *Contract) GetHallOfFameList(db *pgxpool.Pool, ctx context.Context, para
 			&data.UserName,
 			&data.UserFullName,
 			&data.UserImgUrl,
+			&data.UserStyle,
 			&data.TournamentBannerUrl,
 			&data.TournamentName,
 			&data.CafeAddress,
@@ -118,6 +122,7 @@ func (c *Contract) GetUniqueGame(db *pgxpool.Pool, ctx context.Context, param re
 			COALESCE(u.username, '') AS user_name,
 			u.fullname AS user_fullname,
 			u.image_url AS user_img_url,
+			u.styles AS user_style,
 			0 AS total_point,
 			COUNT(DISTINCT up.game_id) AS total_played_game
 		FROM
@@ -150,7 +155,7 @@ func (c *Contract) GetUniqueGame(db *pgxpool.Pool, ctx context.Context, param re
 
 	// Limit
 	paramQuery = append(paramQuery, param.Limit)
-	query += fmt.Sprintf(" GROUP BY u.user_code, u.username, u.fullname, u.image_url ORDER BY total_played_game DESC LIMIT $%d", len(paramQuery))
+	query += fmt.Sprintf(" GROUP BY u.user_code, u.username, u.fullname, u.image_url, u.styles ORDER BY total_played_game DESC LIMIT $%d", len(paramQuery))
 
 	rows, err := db.Query(ctx, query, paramQuery...)
 	if err != nil {
@@ -166,6 +171,7 @@ func (c *Contract) GetUniqueGame(db *pgxpool.Pool, ctx context.Context, param re
 			&data.UserName,
 			&data.UserFullName,
 			&data.UserImgUrl,
+			&data.UserStyle,
 			&data.TotalPoint,
 			&data.TotalGamePlayed,
 		)
@@ -211,6 +217,7 @@ func (c *Contract) GetMostVP(db *pgxpool.Pool, ctx context.Context, param reques
 			COALESCE(u.username, '') AS user_name,
 			u.fullname AS user_fullname,
 			u.image_url AS user_img_url,
+			u.styles AS user_style,
 			SUM(tp.total_point) AS total_point,
 			0 AS total_played_game
 		FROM users u 
@@ -271,6 +278,7 @@ func (c *Contract) GetMostVP(db *pgxpool.Pool, ctx context.Context, param reques
 			&data.UserName,
 			&data.UserFullName,
 			&data.UserImgUrl,
+			&data.UserStyle,
 			&data.TotalPoint,
 			&data.TotalGamePlayed,
 		)

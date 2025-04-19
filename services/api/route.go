@@ -80,6 +80,9 @@ func AppSubsRoute(r chi.Router, app *bootstrap.App) {
 		//User Profile By Code
 		r.With(app.VerifyAccessRoute).Get("/{code}/profile", nrWrap(h.GetUserProfileByCodeAct, app.NewRelic))
 
+		//Store User Style
+		r.With(app.VerifyAccessRoute).Patch("/{code}/style", nrWrap(h.StoreUserStyleAct, app.NewRelic))
+
 		r.With(app.VerifyAccessRoute).Put("/update-password", nrWrap(h.UpdatePasswordUserAct, app.NewRelic))
 
 		// User Profile

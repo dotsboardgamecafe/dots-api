@@ -1,24 +1,25 @@
 package response
 
 type UserRes struct {
-	UserCode           string `json:"user_code"`
-	Email              string `json:"email"`
-	UserName           string `json:"username"`
-	PhoneNumber        string `json:"phone_number"`
-	FullName           string `json:"fullname"`
-	DateOfBirth        string `json:"date_of_birth"`
-	Gender             string `json:"gender"`
-	ImageURL           string `json:"image_url"`
-	LatestPoint        int    `json:"latest_point"`
-	LatestTier         string `json:"latest_tier"`
-	Password           string `json:"password"`
-	XPlayer            string `json:"x_player"`
-	StatusVerification bool   `json:"status_verification"`
-	Status             string `json:"status"`
-	TotalSpent         int    `json:"total_spent"`
-	CreatedDate        string `json:"created_date"`
-	UpdatedDate        string `json:"updated_date"`
-	DeletedDate        string `json:"deleted_date,omitempty"`
+	UserCode           string       `json:"user_code"`
+	Email              string       `json:"email"`
+	UserName           string       `json:"username"`
+	PhoneNumber        string       `json:"phone_number"`
+	FullName           string       `json:"fullname"`
+	DateOfBirth        string       `json:"date_of_birth"`
+	Gender             string       `json:"gender"`
+	ImageURL           string       `json:"image_url"`
+	LatestPoint        int          `json:"latest_point"`
+	LatestTier         string       `json:"latest_tier"`
+	Password           string       `json:"password"`
+	XPlayer            string       `json:"x_player"`
+	StatusVerification bool         `json:"status_verification"`
+	Status             string       `json:"status"`
+	UserStyle          UserStyleRes `json:"user_style"`
+	TotalSpent         int          `json:"total_spent"`
+	CreatedDate        string       `json:"created_date"`
+	UpdatedDate        string       `json:"updated_date"`
+	DeletedDate        string       `json:"deleted_date,omitempty"`
 }
 
 type UserProfileRes struct {
@@ -39,21 +40,27 @@ type UserProfileRes struct {
 	XPlayer            string               `json:"x_player"`
 	StatusVerification bool                 `json:"status_verification"`
 	Status             string               `json:"status"`
+	UserStyle          UserStyleRes         `json:"user_style"`
 	CreatedDate        string               `json:"created_date"`
 	UpdatedDate        string               `json:"updated_date"`
 	DeletedDate        string               `json:"deleted_date"`
 }
 
 type PlayerActivitiesRes struct {
-	UserName         string `json:"username"`
-	UserCode         string `json:"user_code"`
-	UserImageUrl     string `json:"user_image_url"`
-	TitleDescription string `json:"title_description"`
-	ItemName         string `json:"item_name"`
-	ItemCode         string `json:"item_code"`
-	ItemImgUrl       string `json:"item_image_url"`
-	DataSource       string `json:"data_source"`
-	SourceCode       string `json:"source_code"`
-	Point            int    `json:"point"`
-	CreatedDate      string `json:"created_date"`
+	UserName         string       `json:"username"`
+	UserCode         string       `json:"user_code"`
+	UserImageUrl     string       `json:"user_image_url"`
+	UserStyle        UserStyleRes `json:"user_style"`
+	TitleDescription string       `json:"title_description"`
+	ItemName         string       `json:"item_name"`
+	ItemCode         string       `json:"item_code"`
+	ItemImgUrl       string       `json:"item_image_url"`
+	DataSource       string       `json:"data_source"`
+	SourceCode       string       `json:"source_code"`
+	Point            int          `json:"point"`
+	CreatedDate      string       `json:"created_date"`
+}
+
+type UserStyleRes struct {
+	Color string `json:"color"`
 }

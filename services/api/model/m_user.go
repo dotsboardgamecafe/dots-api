@@ -3,8 +3,10 @@ package model
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"dots-api/lib/utils"
 	"dots-api/services/api/request"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -57,10 +59,38 @@ type UserEnt struct {
 	RoleId             int            `db:"role_id"`
 	StatusVerification bool           `db:"status_verification"`
 	Status             string         `db:"status"`
+	UserStyle          UserStyle      `db:"styles"`
 	TotalSpent         int            `db:"total_spent"`
 	CreatedDate        time.Time      `db:"created_date"`
 	UpdatedDate        sql.NullTime   `db:"updated_date"`
 	DeletedDate        sql.NullTime   `db:"deleted_date"`
+}
+
+type UserStyle struct {
+	Color string `db:"color" json:"color"`
+}
+
+func (s *UserStyle) Value() (driver.Value, error) {
+	return json.Marshal(s)
+}
+
+func (s *UserStyle) Scan(value interface{}) error {
+	if value == nil {
+		*s = UserStyle{}
+		return nil
+	}
+
+	b, ok := value.([]byte)
+	if !ok {
+		str, ok := value.(string)
+		if ok {
+			return json.Unmarshal([]byte(str), s)
+		}
+
+		return errors.New("m.UserStyle.Scan: " + utils.ErrTypeAssertionFailed + " expected []byte, got " + fmt.Sprintf("%T", value))
+	}
+
+	return json.Unmarshal(b, s)
 }
 
 func (c *Contract) GetAllUsers(db *pgxpool.Pool, ctx context.Context) ([]UserEnt, error) {
@@ -69,7 +99,7 @@ func (c *Contract) GetAllUsers(db *pgxpool.Pool, ctx context.Context) ([]UserEnt
 	query := `
 		SELECT id, user_code, email, date_of_birth, gender, username, phone_number, fullname, image_url, 
 		       latest_point, latest_tier_id, password, x_player, status_verification, 
-		       status, created_date, updated_date, deleted_date 
+		       status, styles, created_date, updated_date, deleted_date
 		FROM users
 	`
 
@@ -97,6 +127,7 @@ func (c *Contract) GetAllUsers(db *pgxpool.Pool, ctx context.Context) ([]UserEnt
 			&user.XPlayer,
 			&user.StatusVerification,
 			&user.Status,
+			&user.UserStyle,
 			&user.CreatedDate,
 			&user.UpdatedDate,
 			&user.DeletedDate,
@@ -133,6 +164,7 @@ func (c *Contract) GetUserByEmail(db *pgxpool.Pool, ctx context.Context, email s
 						role_id,
 						status_verification,
 						users.status,
+						users.styles,
 						users.created_date AS created_date,
 						users.updated_date AS updated_date,
 						users.deleted_date AS deleted_date,
@@ -159,6 +191,7 @@ func (c *Contract) GetUserByEmail(db *pgxpool.Pool, ctx context.Context, email s
 		&res.RoleId,
 		&res.StatusVerification,
 		&res.Status,
+		&res.UserStyle,
 		&res.CreatedDate,
 		&res.UpdatedDate,
 		&res.DeletedDate,
@@ -197,6 +230,7 @@ func (c *Contract) GetUserByUserCode(db *pgxpool.Pool, ctx context.Context, user
 						x_player,
 						status_verification,
 						users.status,
+						users.styles,
 						users.created_date AS created_date,
 						users.updated_date AS updated_date,
 						users.deleted_date AS deleted_date,
@@ -236,6 +270,7 @@ func (c *Contract) GetUserByUserCode(db *pgxpool.Pool, ctx context.Context, user
 		&res.XPlayer,
 		&res.StatusVerification,
 		&res.Status,
+		&res.UserStyle,
 		&res.CreatedDate,
 		&res.UpdatedDate,
 		&res.DeletedDate,
@@ -274,6 +309,7 @@ func (c *Contract) GetUserList(db *pgxpool.Pool, ctx context.Context, param requ
 						x_player,
 						status_verification,
 						users.status,
+						users.styles,
 						users.created_date AS created_date,
 						users.updated_date AS updated_date,
 						users.deleted_date AS deleted_date,
@@ -374,6 +410,7 @@ func (c *Contract) GetUserList(db *pgxpool.Pool, ctx context.Context, param requ
 			&res.XPlayer,
 			&res.StatusVerification,
 			&res.Status,
+			&res.UserStyle,
 			&res.CreatedDate,
 			&res.UpdatedDate,
 			&res.DeletedDate,
@@ -529,6 +566,7 @@ func (c *Contract) GetPlayerAndOtherActivities(db *pgxpool.Pool, ctx context.Con
 			u.user_code,
 			u.image_url,
 			u.username,
+			u.styles,
 			data_source, 
 			source_code,
 			COALESCE(t.name, r.name, b.name, tiers.name, g.name, '') AS item_name,
@@ -563,6 +601,7 @@ func (c *Contract) GetPlayerAndOtherActivities(db *pgxpool.Pool, ctx context.Con
 			&data.UserCode,
 			&data.UserImageUrl,
 			&data.UserName,
+			&data.UserStyle,
 			&data.DataSource,
 			&data.SourceCode,
 			&data.ItemName,
@@ -588,6 +627,7 @@ func (c *Contract) GetUserPointActivities(db *pgxpool.Pool, ctx context.Context,
 		query = `SELECT
     		u.id,
 				COALESCE(u.username, '') AS username,
+				COALESCE(u.styles, '') AS user_style,
 				COALESCE(CASE
 					-- Room type (normal and special_event)
 					WHEN (up.data_source = 'room') THEN (
@@ -665,6 +705,7 @@ func (c *Contract) GetUserPointActivities(db *pgxpool.Pool, ctx context.Context,
 		err = rows.Scan(
 			&data.Id,
 			&data.UserName,
+			&data.UserStyle,
 			&data.TitleDescription,
 			&data.DataSource,
 			&data.SourceCode,
@@ -741,6 +782,20 @@ func (c *Contract) CheckIfUsernameExists(db *pgxpool.Pool, ctx context.Context, 
 
 	if exists {
 		return c.errHandler("model.CheckIfUsernameExists", errors.New(utils.ErrUsernameHasAlreadyTaken), utils.ErrUsernameHasAlreadyTaken)
+	}
+
+	return nil
+}
+
+func (c *Contract) StoreUserStyle(db *pgxpool.Pool, ctx context.Context, userID int64, styles UserStyle) error {
+	var (
+		err error
+		sql = `UPDATE users SET styles = $2 WHERE id = $1`
+	)
+
+	_, err = db.Exec(ctx, sql, userID, styles)
+	if err != nil {
+		return c.errHandler("model.StoreUserStyle", err, utils.ErrStoringUserStyle)
 	}
 
 	return nil

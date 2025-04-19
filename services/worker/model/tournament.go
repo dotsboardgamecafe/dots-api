@@ -112,7 +112,7 @@ func (c *Contract) GetListTournamentCodes(db *pgxpool.Pool, ctx context.Context)
 	var (
 		err             error
 		tournamentCodes []string
-		query           = `SELECT tournament_code FROM tournaments WHERE end_date < NOW() AND deleted_date IS NULL`
+		query           = `SELECT tournament_code FROM tournaments WHERE end_date < NOW()`
 	)
 
 	rows, err := db.Query(ctx, query)

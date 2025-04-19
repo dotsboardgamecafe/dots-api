@@ -125,7 +125,7 @@ func (c *Contract) GetRoomCodeAndTypeExpiredRoomLists(db *pgxpool.Pool, ctx cont
 	var (
 		err   error
 		list  []RoomEnt
-		query = `SELECT room_code, room_type FROM rooms WHERE end_date < NOW() AND deleted_date IS NULL`
+		query = `SELECT room_code, room_type FROM rooms WHERE end_date < NOW()`
 	)
 
 	rows, err := db.Query(ctx, query)

@@ -41,6 +41,10 @@ type (
 		Status      string    `json:"status"`
 	}
 
+	StoreUserStyleReq struct {
+		Color string `json:"color" validate:"required,hexcolor"`
+	}
+
 	UserParam struct {
 		Page       int      `json:"page"`
 		Limit      int      `json:"limit"`

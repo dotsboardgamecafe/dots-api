@@ -41,6 +41,7 @@ func (h *Contract) GetUserListAct(w http.ResponseWriter, r *http.Request) {
 
 	// Populate response
 	for _, v := range data {
+		fmt.Println(v.UserStyle)
 		res = append(res, response.UserRes{
 			UserCode:           v.UserCode,
 			Email:              v.Email.String,
@@ -56,6 +57,7 @@ func (h *Contract) GetUserListAct(w http.ResponseWriter, r *http.Request) {
 			XPlayer:            v.XPlayer,
 			StatusVerification: v.StatusVerification,
 			Status:             v.Status,
+			UserStyle:          response.UserStyleRes{Color: v.UserStyle.Color},
 			TotalSpent:         v.TotalSpent,
 			CreatedDate:        v.CreatedDate.Format(utils.DATE_TIME_FORMAT),
 			UpdatedDate:        v.UpdatedDate.Time.Format(utils.DATE_TIME_FORMAT),
@@ -95,6 +97,7 @@ func (h *Contract) GetUserDetailAct(w http.ResponseWriter, r *http.Request) {
 		XPlayer:            data.XPlayer,
 		StatusVerification: data.StatusVerification,
 		Status:             data.Status,
+		UserStyle:          response.UserStyleRes{Color: data.UserStyle.Color},
 		TotalSpent:         data.TotalSpent,
 		CreatedDate:        data.CreatedDate.Format(utils.DATE_TIME_FORMAT),
 		UpdatedDate:        data.UpdatedDate.Time.Format(utils.DATE_TIME_FORMAT),
@@ -159,6 +162,7 @@ func (h *Contract) GetUserProfileAct(w http.ResponseWriter, r *http.Request) {
 		TierBenefits:       TierBenefits,
 		StatusVerification: dataUser.StatusVerification,
 		Status:             dataUser.Status,
+		UserStyle:          response.UserStyleRes{Color: dataUser.UserStyle.Color},
 		MemberSince:        dataUser.CreatedDate.Format(utils.YEAR_FORMAT),
 		CreatedDate:        dataUser.CreatedDate.Format(utils.DATE_TIME_FORMAT),
 		UpdatedDate:        dataUser.UpdatedDate.Time.Format(utils.DATE_TIME_FORMAT),
@@ -225,6 +229,7 @@ func (h *Contract) GetUserProfileByCodeAct(w http.ResponseWriter, r *http.Reques
 		TierBenefits:       TierBenefits,
 		StatusVerification: dataUser.StatusVerification,
 		Status:             dataUser.Status,
+		UserStyle:          response.UserStyleRes{Color: dataUser.UserStyle.Color},
 		MemberSince:        dataUser.CreatedDate.Format(utils.YEAR_FORMAT),
 		CreatedDate:        dataUser.CreatedDate.Format(utils.DATE_TIME_FORMAT),
 		UpdatedDate:        dataUser.UpdatedDate.Time.Format(utils.DATE_TIME_FORMAT),
@@ -459,6 +464,7 @@ func (h *Contract) GetAllPlayerActivities(w http.ResponseWriter, r *http.Request
 			UserName:         v.UserName,
 			UserCode:         v.UserCode,
 			UserImageUrl:     v.UserImageUrl,
+			UserStyle:        response.UserStyleRes{Color: v.UserStyle.Color},
 			ItemName:         v.ItemName,
 			ItemCode:         v.ItemCode,
 			ItemImgUrl:       v.ItemImgUrl,
@@ -493,6 +499,7 @@ func (h *Contract) GetUserPointActivities(w http.ResponseWriter, r *http.Request
 			DataSource:       v.DataSource,
 			SourceCode:       v.SourceCode,
 			UserName:         v.UserName,
+			UserStyle:        response.UserStyleRes{Color: v.UserStyle.Color},
 			Point:            v.Point,
 			CreatedDate:      v.CreatedDate.Format(time.RFC3339),
 		})
@@ -524,4 +531,35 @@ func (h *Contract) DeleteUserAct(w http.ResponseWriter, r *http.Request) {
 	}
 	h.SendSuccess(w, nil, nil)
 
+}
+
+func (h *Contract) StoreUserStyleAct(w http.ResponseWriter, r *http.Request) {
+	var (
+		err  error
+		code = chi.URLParam(r, "code")
+		ctx  = context.TODO()
+		m    = model.Contract{App: h.App}
+		req  = request.StoreUserStyleReq{}
+	)
+
+	// Bind and validate
+	if err = h.BindAndValidate(r, &req); err != nil {
+		h.SendBindAndValidateError(w, err)
+		return
+	}
+
+	user, err := m.GetUserByUserCode(h.DB, ctx, code)
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		return
+	}
+
+	// Store user style
+	err = m.StoreUserStyle(h.DB, ctx, int64(user.ID), model.UserStyle{Color: req.Color})
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		return
+	}
+
+	h.SendSuccess(w, nil, nil)
 }

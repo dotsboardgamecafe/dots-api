@@ -17,6 +17,7 @@ type UserPointEnt struct {
 	UserCode         string    `db:"user_code"`
 	UserImageUrl     string    `db:"user_image_url"`
 	UserName         string    `db:"user_name"`
+	UserStyle        UserStyle `db:"user_style"`
 	DataSource       string    `db:"data_source"`
 	SourceCode       string    `db:"source_code"`
 	TitleDescription string    `db:"title_description"`

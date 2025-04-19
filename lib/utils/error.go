@@ -38,6 +38,7 @@ var (
 	ErrInvalidEndTimeFormat            = "Invalid end time format"
 	ErrXPlayerTokenCantBeEmpty         = "X-Player can't be empty"
 	ErrForbiddenAuth                   = "Forbidden, you're not authorized"
+	ErrTypeAssertionFailed             = "Type assertion failed"
 
 	ErrInvalidExpiredDate = "Invalid expired date format"
 	// Error for module AMQP
@@ -68,6 +69,7 @@ var (
 	ErrCheckingIfUsernameExists         = "Error checking if username exists"
 	ErrUsernameHasAlreadyTaken          = "Username has already taken"
 	ErrUsernameExceedsMaxCharacterLimit = "Username exceeds maximum character limit"
+	ErrStoringUserStyle                 = "Error storing user style"
 
 	// Error for module user address
 	ErrGettingUserAddresses      = "Error getting user addresses by user ID"
