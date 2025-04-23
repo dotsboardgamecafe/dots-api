@@ -118,6 +118,7 @@ func (h *Contract) GetRoomByCode(w http.ResponseWriter, r *http.Request) {
 			UserCode:       participant.UserCode,
 			UserName:       participant.UserName,
 			UserImgUrl:     participant.UserImgUrl,
+			UserStyle:      response.UserStyleRes{Color: participant.UserStyle.Color},
 			StatusWinner:   participant.StatusWinner,
 			Status:         participant.Status,
 			AdditionalInfo: participant.AdditionalInfo.String,
@@ -617,7 +618,6 @@ func (h *Contract) SetWinnerRoomAct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var participantIds []int64
 	for _, req := range reqs.RoomParticipant {
 		var statusWinner bool
 		userId, err := m.GetUserIdByUserCode(h.DB, ctx, req.UserCode)
@@ -653,6 +653,11 @@ func (h *Contract) SetWinnerRoomAct(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
+		exists := m.AddUserGameCollections(h.DB, ctx, int64(userId), room.GameId)
+		if exists == nil {
+			m.AddUserPoint(tx, ctx, int64(userId), utils.UserPointType["GAME_COLLECTION"], room.GameCode, utils.FirstTimePlayed.Int())
+		}
+
 		go func(ctx context.Context, userID int64) {
 			// Publisher badge
 			queueData := rabbit.QueueDataPayload(
@@ -668,14 +673,7 @@ func (h *Contract) SetWinnerRoomAct(w http.ResponseWriter, r *http.Request) {
 				log.Printf("Error : %s", err)
 			}
 		}(ctx, int64(userId))
-		participantIds = append(participantIds, int64(userId))
 	}
-
-	go func(ctx context.Context, participantIds []int64, gameId int64) {
-		for _, participantUserId := range participantIds {
-			_ = m.AddUserGameCollections(h.DB, ctx, participantUserId, gameId)
-		}
-	}(ctx, participantIds, room.GameId)
 
 	notificationType := utils.UpcomingSession
 	if room.RoomType == utils.RoomType[1] {

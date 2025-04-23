@@ -1,6 +1,11 @@
 package utils
 
 type UserType string
+type UserPointReward int
+
+func (u UserPointReward) Int() int {
+	return int(u)
+}
 
 type BadgeCategory string
 
@@ -152,9 +157,14 @@ var (
 		"ROOM_PLAY":       "[username] has gained [vp] #vp# from joining [name]",
 		"BADGE_TYPE":      "[username] just claimed the [name] badge",
 		"REDEEM_TYPE":     "[username] has redeemed [name]",
-		"GAME_COLLECTION": "[username] played [name] for the first time",
+		"GAME_COLLECTION": "[username] played [name] for the first time and gained [vp] #vp#",
 		"TIER":            "[username] has advanced to [name] tier",
+		"PROFILE":         "[username] has updated their profile",
 	}
+
+	// List Static UserPointReward
+	FirstTimePlayed UserPointReward = 5
+	UpdateProfile   UserPointReward = 10
 
 	RedeemPlatform = map[string]string{
 		"APP": "app",

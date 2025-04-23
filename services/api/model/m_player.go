@@ -205,11 +205,18 @@ func (c *Contract) GetMostVP(db *pgxpool.Pool, ctx context.Context, param reques
 			JOIN tournaments r ON r.id = rp.tournament_id
 		WHERE r.tournament_code = up.source_code
 		`
-		queryGetNonGameTotalPoint = `
-		SELECT up.user_id, SUM(up.point) AS total_point
+		queryGetNonGameTotalPoint = fmt.Sprintf(
+			`SELECT up.user_id, SUM(up.point) AS total_point
 		FROM users_points up 
-		WHERE up.data_source NOT IN ('room', 'tournament')
-		`
+		WHERE up.data_source NOT IN ('%s', '%s', '%s', '%s', '%s', '%s')
+		`,
+			utils.UserPointType["TOURNAMENT_TYPE"],
+			utils.UserPointType["TOURNAMENT_PLAY"],
+			utils.UserPointType["TOURNAMENT_PAID"],
+			utils.UserPointType["ROOM_TYPE"],
+			utils.UserPointType["ROOM_PLAY"],
+			utils.UserPointType["ROOM_PAID"],
+		)
 		query = `
 		SELECT
 			ROW_NUMBER() OVER(ORDER BY SUM(tp.total_point) DESC) AS rank,

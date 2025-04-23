@@ -102,10 +102,9 @@ func (h *Contract) AddUserGameCollectionAct(w http.ResponseWriter, r *http.Reque
 	}()
 
 	// Add user point that count as activity, smh
-	err = m.AddUserPoint(tx, ctx, userID, utils.UserPointType["GAME_COLLECTION"], game.GameCode, 0)
+	err = m.AddUserPoint(tx, ctx, userID, utils.UserPointType["GAME_COLLECTION"], game.GameCode, utils.FirstTimePlayed.Int())
 	if err != nil {
-		h.SendBadRequest(w, err.Error())
-		return
+		h.Log.File().Error("h.AddUserGameCollectionAct: "+err.Error(), code, game.GameCode)
 	}
 
 	go func(ctx context.Context, userID int64) {

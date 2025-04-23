@@ -1,13 +1,14 @@
 package response
 
 type RoomParticipantRes struct {
-	UserCode       string `json:"user_code"`
-	UserName       string `json:"user_name"`
-	UserImgUrl     string `json:"user_image_url"`
-	StatusWinner   bool   `json:"status_winner"`
-	Status         string `json:"status"`
-	AdditionalInfo string `json:"additional_info"`
-	Position       int    `json:"position"`
-	RewardPoint    int    `json:"reward_point"`
-	LatestTier     string `json:"latest_tier"`
+	UserCode       string       `json:"user_code"`
+	UserName       string       `json:"user_name"`
+	UserImgUrl     string       `json:"user_image_url"`
+	UserStyle      UserStyleRes `json:"user_style"`
+	StatusWinner   bool         `json:"status_winner"`
+	Status         string       `json:"status"`
+	AdditionalInfo string       `json:"additional_info"`
+	Position       int          `json:"position"`
+	RewardPoint    int          `json:"reward_point"`
+	LatestTier     string       `json:"latest_tier"`
 }
