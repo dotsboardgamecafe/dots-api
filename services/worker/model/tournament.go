@@ -135,3 +135,32 @@ func (c *Contract) GetListTournamentCodes(db *pgxpool.Pool, ctx context.Context)
 
 	return tournamentCodes, nil
 }
+
+func (c *Contract) GetExpiredTournamentLists(db *pgxpool.Pool, ctx context.Context) ([]TournamentsEnt, error) {
+	var (
+		err   error
+		list  []TournamentsEnt
+		query = `SELECT tournament_code, end_date, end_time, status FROM tournaments WHERE end_date < NOW()`
+	)
+
+	rows, err := db.Query(ctx, query)
+
+	if err != nil {
+		return nil, c.errHandler("model.GetExpiredTournamentLists", err, utils.ErrGettingExpiredTournamentLists)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var data TournamentsEnt
+		err = rows.Scan(&data.TournamentCode, &data.EndDate, &data.EndTime, &data.Status)
+		if err != nil {
+			return nil, c.errHandler("model.GetExpiredTournamentLists", err, utils.ErrGettingExpiredTournamentLists)
+		}
+		list = append(list, data)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, c.errHandler("model.GetExpiredTournamentLists", err, utils.ErrGettingExpiredTournamentLists)
+	}
+
+	return list, nil
+}

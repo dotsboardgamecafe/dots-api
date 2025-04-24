@@ -154,6 +154,7 @@ var (
 	ErrCountingListTournament                   = "Error counting list tournament"
 	ErrGettingListTournament                    = "Error getting list tournament"
 	ErrGettingListTournamentCode                = "Error getting list tournament code"
+	ErrGettingExpiredTournamentLists            = "Error getting expired list tournament"
 	ErrGetRemainingOfNonWinnerPlayers           = "Error getting list of non winner players"
 	ErrScanningListTournament                   = "Error scanning list tournament"
 	ErrAddingTournament                         = "Error adding tournament"
@@ -177,6 +178,7 @@ var (
 	// Error for module room
 	ErrCountingListRoom                                     = "Error counting list room"
 	ErrGettingListRoom                                      = "Error getting list room"
+	ErrGettingExpiredRoomLists                              = "Error getting expired room lists"
 	ErrGettingListRoomCode                                  = "Error getting list room code"
 	ErrScanningListRoom                                     = "Error scanning list room"
 	ErrAddingRoom                                           = "Error adding room"

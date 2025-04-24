@@ -20,8 +20,10 @@ type RoomEnt struct {
 	Difficulty         string         `db:"difficulty"`
 	Description        string         `db:"description"`
 	Instruction        string         `db:"instruction"`
-	StartDate          time.Time      `db:"start_date"`
-	EndDate            time.Time      `db:"end_date"`
+	StartDate          sql.NullTime   `db:"start_date"`
+	EndDate            sql.NullTime   `db:"end_date"`
+	StartTime          time.Time      `db:"start_time"`
+	EndTime            time.Time      `db:"end_time"`
 	MaximumParticipant int            `db:"maximum_participant"`
 	CurrentUsedSlot    int            `db:"current_used_slot"`
 	InstagramLink      string         `db:"instagram_link"`
@@ -121,31 +123,31 @@ func (c *Contract) UpdateRoomStatus(db *pgxpool.Pool, ctx context.Context, roomC
 	return nil
 }
 
-func (c *Contract) GetRoomCodeAndTypeExpiredRoomLists(db *pgxpool.Pool, ctx context.Context) ([]RoomEnt, error) {
+func (c *Contract) GetExpiredRoomLists(db *pgxpool.Pool, ctx context.Context) ([]RoomEnt, error) {
 	var (
 		err   error
 		list  []RoomEnt
-		query = `SELECT room_code, room_type FROM rooms WHERE end_date < NOW()`
+		query = `SELECT room_code, room_type, end_date, end_time, status FROM rooms WHERE end_date < NOW()`
 	)
 
 	rows, err := db.Query(ctx, query)
 
 	if err != nil {
-		return nil, c.errHandler("model.GetRoomList", err, utils.ErrGettingListRoom)
+		return nil, c.errHandler("model.GetExpiredRoomLists", err, utils.ErrGettingExpiredRoomLists)
 	}
 
 	defer rows.Close()
 
 	for rows.Next() {
 		var data RoomEnt
-		err = rows.Scan(&data.RoomCode, &data.RoomType)
+		err = rows.Scan(&data.RoomCode, &data.RoomType, &data.EndDate, &data.EndTime, &data.Status)
 		if err != nil {
-			return nil, c.errHandler("model.GetRoomList", err, utils.ErrScanningListRoom)
+			return nil, c.errHandler("model.GetExpiredRoomLists", err, utils.ErrScanningListRoom)
 		}
 		list = append(list, data)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, c.errHandler("model.GetRoomList", err, utils.ErrGettingListRoom)
+		return nil, c.errHandler("model.GetExpiredRoomLists", err, utils.ErrGettingExpiredRoomLists)
 	}
 
 	return list, nil

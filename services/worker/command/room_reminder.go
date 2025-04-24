@@ -50,7 +50,7 @@ func (app Contract) UserRoomReminder(c *cli.Context) error {
 			notifCode := utils.GeneratePrefixCode(utils.NotifPrefix)
 
 			description := response.NotificationRoomResp{
-				StartDate:   room.StartDate.Format("2006-01-02"),
+				StartDate:   room.StartDate.Time.Format("2006-01-02"),
 				CafeName:    room.CafeName,
 				CafeAddress: room.CafeAddress,
 				GameName:    room.CafeName,
@@ -69,7 +69,7 @@ func (app Contract) UserRoomReminder(c *cli.Context) error {
 			}
 
 			onesignal := onesignal.New(m.App)
-			OSDescription := utils.RoomReminderPushNotificationDescription + "\n\n" + "Room name: " + room.Name + "\n" + "Date: " + room.StartDate.Format("2006-01-02") + "\n" + "Location: " + room.CafeName
+			OSDescription := utils.RoomReminderPushNotificationDescription + "\n\n" + "Room name: " + room.Name + "\n" + "Date: " + room.StartDate.Time.Format("2006-01-02") + "\n" + "Location: " + room.CafeName
 			_, err = onesignal.CreateOSNotifications(user.UserXPlayer, utils.RoomReminderPushNotificationTitle, OSDescription, utils.Room)
 			if err != nil {
 				log.Printf("Error : %s", err)
@@ -96,7 +96,7 @@ func (app Contract) UserRoomReminder(c *cli.Context) error {
 			notifCode := utils.GeneratePrefixCode(utils.NotifPrefix)
 
 			description := response.NotificationRoomResp{
-				StartDate:   room.StartDate.Format("2006-01-02"),
+				StartDate:   room.StartDate.Time.Format("2006-01-02"),
 				CafeName:    room.CafeName,
 				CafeAddress: room.CafeAddress,
 				GameName:    room.CafeName,
@@ -115,7 +115,7 @@ func (app Contract) UserRoomReminder(c *cli.Context) error {
 			}
 
 			onesignal := onesignal.New(m.App)
-			OSDescription := utils.RoomReminderPushNotificationDescription + "\n\n" + "Room name: " + room.Name + "\n" + "Date: " + room.StartDate.Format("2006-01-02") + "\n" + "Location: " + room.CafeName
+			OSDescription := utils.RoomReminderPushNotificationDescription + "\n\n" + "Room name: " + room.Name + "\n" + "Date: " + room.StartDate.Time.Format("2006-01-02") + "\n" + "Location: " + room.CafeName
 			_, err = onesignal.CreateOSNotifications(user.UserXPlayer, utils.RoomReminderPushNotificationTitle, OSDescription, utils.Room)
 			if err != nil {
 				return err
