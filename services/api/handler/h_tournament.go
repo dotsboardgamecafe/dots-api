@@ -654,7 +654,7 @@ func (h *Contract) SetWinnerTournamentAct(w http.ResponseWriter, r *http.Request
 	}
 
 	tournamentId := tournamentData.TournamentId
-	tournamentParticipantPoint := tournamentData.ParticipantVP
+	tournamentParticipantPoint := int(tournamentData.ParticipantVP)
 
 	params := tournamentParams{TournamentStatus: tournamentData.Status}
 	if isTournamentClosed(w, h, params) {
@@ -717,14 +717,14 @@ func (h *Contract) SetWinnerTournamentAct(w http.ResponseWriter, r *http.Request
 
 			// Update participant tournament info
 			err = m.UpdateTournamentParticipant(
-				tx, ctx, tournamentId, int64(userId), statusWinner, req.Position, tournamentEnt.Status, tournamentEnt.AdditionalInfo.String, tournamentEnt.RewardPoint.Int64, tournamentEnt.TransactionCode.String)
+				tx, ctx, tournamentId, int64(userId), statusWinner, req.Position, tournamentEnt.Status, tournamentEnt.AdditionalInfo.String, int64(tournamentParticipantPoint), tournamentEnt.TransactionCode.String)
 			if err != nil {
 				h.SendBadRequest(w, err.Error())
 				return
 			}
 
 			// Add user point for all the winners
-			err = m.AddUserPoint(tx, ctx, userId, utils.UserPointType["TOURNAMENT_PLAY"], tournamentCode, int(tournamentEnt.RewardPoint.Int64))
+			err = m.AddUserPoint(tx, ctx, userId, utils.UserPointType["TOURNAMENT_PLAY"], tournamentCode, tournamentParticipantPoint)
 			if err != nil {
 				h.SendBadRequest(w, err.Error())
 				return
@@ -764,13 +764,13 @@ func (h *Contract) SetWinnerTournamentAct(w http.ResponseWriter, r *http.Request
 
 			// Update participant tournament info
 			err = m.UpdateTournamentParticipant(
-				tx, ctx, tournamentId, int64(userId), statusWinner, req.Position, tournamentEnt.Status, tournamentEnt.AdditionalInfo.String, tournamentParticipantPoint, tournamentEnt.TransactionCode.String)
+				tx, ctx, tournamentId, int64(userId), statusWinner, req.Position, tournamentEnt.Status, tournamentEnt.AdditionalInfo.String, int64(tournamentParticipantPoint), tournamentEnt.TransactionCode.String)
 			if err != nil {
 				h.SendBadRequest(w, err.Error())
 				return
 			}
 
-			err = m.AddUserPoint(tx, ctx, userId, utils.UserPointType["TOURNAMENT_PLAY"], tournamentCode, int(tournamentParticipantPoint))
+			err = m.AddUserPoint(tx, ctx, userId, utils.UserPointType["TOURNAMENT_PLAY"], tournamentCode, tournamentParticipantPoint)
 			if err != nil {
 				h.SendBadRequest(w, err.Error())
 				return
@@ -780,8 +780,10 @@ func (h *Contract) SetWinnerTournamentAct(w http.ResponseWriter, r *http.Request
 		participantIds = append(participantIds, int64(userId))
 	}
 
-	for _, participantId := range participantIds {
-		_ = m.AddUserGameCollections(h.DB, ctx, participantId, tournamentData.GameId)
+	for _, id := range participantIds {
+		if err := m.AddUserGameCollections(h.DB, ctx, id, tournamentData.GameId); err == nil {
+			m.AddUserPoint(tx, ctx, id, utils.UserPointType["GAME_COLLECTION"], tournamentData.GameCode, utils.FirstTimePlayed.Int())
+		}
 	}
 
 	go removeUpcomingRoomNotification(&m, ctx, tournamentCode, utils.TournamentReminder)

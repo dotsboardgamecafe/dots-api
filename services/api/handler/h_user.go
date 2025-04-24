@@ -265,6 +265,19 @@ func (h *Contract) UpdateUserProfileAct(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// Start a transaction
+	tx, err := h.DB.Begin(ctx)
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		return
+	}
+	defer func() {
+		if err != nil {
+			tx.Rollback(ctx)
+		}
+		tx.Commit(ctx)
+	}()
+
 	currentData, err := m.GetUserByUserCode(h.DB, ctx, userCode)
 	if err != nil {
 		h.SendBadRequest(w, err.Error())
@@ -326,6 +339,10 @@ func (h *Contract) UpdateUserProfileAct(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		h.SendBadRequest(w, err.Error())
 		return
+	}
+
+	if currentData.ImageURL.String == "" {
+		m.AddUserPoint(tx, ctx, int64(currentData.ID), utils.UserPointType["PROFILE"], userCode, utils.UpdateProfile.Int())
 	}
 
 	h.SendSuccess(w, nil, nil)

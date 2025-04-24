@@ -642,7 +642,7 @@ func (c *Contract) GetUserPointActivities(db *pgxpool.Pool, ctx context.Context,
 						JOIN rooms as r ON r.room_code = ut.source_code
 						WHERE 
 							ut.user_id = up.user_id
-							AND ut.source_code = up.source_code
+							AND ut.transaction_code = up.source_code
 					)
 					-- Tournament Type
 					WHEN (up.data_source = 'tournament' OR up.data_source = 'tournament_play') THEN (
@@ -657,7 +657,7 @@ func (c *Contract) GetUserPointActivities(db *pgxpool.Pool, ctx context.Context,
 						JOIN tournaments as r ON r.tournament_code = ut.source_code
 						WHERE 
 							ut.user_id = up.user_id
-							AND ut.source_code = up.source_code
+							AND ut.transaction_code = up.source_code
 					)
 					-- Tournament Participant
 					WHEN (up.data_source = 'tournament_play') THEN (
@@ -682,6 +682,10 @@ func (c *Contract) GetUserPointActivities(db *pgxpool.Pool, ctx context.Context,
 						SELECT CONCAT('Collected: ', games."name") AS info
 						FROM games
 						WHERE game_code = up.source_code
+					)
+					-- Profile
+					WHEN (up.data_source = 'profile') THEN (
+						SELECT CONCAT('Profile: New Profile Image VP') AS info
 					)
 				END, '') AS title_description,
 				data_source, 

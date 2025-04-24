@@ -147,6 +147,7 @@ var (
 		"REDEEM_TYPE":     "redeem",
 		"GAME_COLLECTION": "game",
 		"TIER":            "tier",
+		"PROFILE":         "profile",
 	}
 
 	// UserPointTypeText
@@ -159,12 +160,11 @@ var (
 		"REDEEM_TYPE":     "[username] has redeemed [name]",
 		"GAME_COLLECTION": "[username] played [name] for the first time and gained [vp] #vp#",
 		"TIER":            "[username] has advanced to [name] tier",
-		"PROFILE":         "[username] has updated their profile",
 	}
 
 	// List Static UserPointReward
 	FirstTimePlayed UserPointReward = 5
-	UpdateProfile   UserPointReward = 10
+	UpdateProfile   UserPointReward = 5
 
 	RedeemPlatform = map[string]string{
 		"APP": "app",
