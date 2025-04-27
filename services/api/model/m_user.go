@@ -685,7 +685,7 @@ func (c *Contract) GetUserPointActivities(db *pgxpool.Pool, ctx context.Context,
 					)
 					-- Profile
 					WHEN (up.data_source = 'profile') THEN (
-						SELECT CONCAT('Profile: New Profile Image VP') AS info
+						SELECT CONCAT('Profile: Updated Profile Image for the first time') AS info
 					)
 				END, '') AS title_description,
 				data_source, 

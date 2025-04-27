@@ -832,23 +832,7 @@ func (h *Contract) RemoveRoomParticipantAct(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	now := time.Now().UTC()
-	endTime, _ := time.Parse(
-		utils.DATE_TIME_FORMAT,
-		fmt.Sprintf(
-			"%s %s",
-			room.EndDate.Time.Format(utils.DATE_FORMAT),
-			room.EndTime.Format(utils.TIME_FORMAT),
-		),
-	)
-
-	parsedEndTime, _ := utils.FromGMT7LocationUTCMin7(endTime)
-
 	params := roomParams{RoomStatus: room.Status}
-	if now.After(parsedEndTime) {
-		params.RoomStatus = "closed"
-	}
-
 	if isRoomClosed(w, h, params) {
 		return
 	}

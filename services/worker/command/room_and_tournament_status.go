@@ -33,18 +33,18 @@ func (app Contract) UpdateStatusRoomAndTournament(c *cli.Context) error {
 	}
 
 	for _, room := range rooms {
-		endDate := time.Date(
-			room.EndDate.Time.Year(),
-			room.EndDate.Time.Month(),
-			room.EndDate.Time.Day(),
-			room.EndTime.Hour(),
-			room.EndTime.Minute(),
-			room.EndTime.Second(),
+		startDate := time.Date(
+			room.StartDate.Time.Year(),
+			room.StartDate.Time.Month(),
+			room.StartDate.Time.Day(),
+			room.StartTime.Hour(),
+			room.StartTime.Minute(),
+			room.StartTime.Second(),
 			0,
 			now.Location(),
 		)
 
-		if room.Status == "inactive" || now.Before(endDate) {
+		if room.Status == "inactive" || now.Before(startDate) {
 			continue
 		}
 
@@ -68,18 +68,18 @@ func (app Contract) UpdateStatusRoomAndTournament(c *cli.Context) error {
 	}
 
 	for _, tournament := range tournaments {
-		endDate := time.Date(
-			tournament.EndDate.Time.Year(),
-			tournament.EndDate.Time.Month(),
-			tournament.EndDate.Time.Day(),
-			tournament.EndTime.Hour(),
-			tournament.EndTime.Minute(),
-			tournament.EndTime.Second(),
+		startDate := time.Date(
+			tournament.StartDate.Time.Year(),
+			tournament.StartDate.Time.Month(),
+			tournament.StartDate.Time.Day(),
+			tournament.StartTime.Hour(),
+			tournament.StartTime.Minute(),
+			tournament.StartTime.Second(),
 			0,
 			now.Location(),
 		)
 
-		if tournament.Status == "inactive" || now.Before(endDate) {
+		if tournament.Status == "inactive" || now.Before(startDate) {
 			continue
 		}
 

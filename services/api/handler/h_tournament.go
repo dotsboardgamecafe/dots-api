@@ -1051,23 +1051,7 @@ func (h *Contract) RemoveTournamentParticipantAct(w http.ResponseWriter, r *http
 		return
 	}
 
-	now := time.Now().UTC()
-	endTime, _ := time.Parse(
-		utils.DATE_TIME_FORMAT,
-		fmt.Sprintf(
-			"%s %s",
-			tournament.EndDate.Time.Format(utils.DATE_FORMAT),
-			tournament.EndTime.Format(utils.TIME_FORMAT),
-		),
-	)
-
-	parsedEndTime, _ := utils.FromGMT7LocationUTCMin7(endTime)
-
 	params := tournamentParams{TournamentStatus: tournament.Status}
-	if now.After(parsedEndTime) {
-		params.TournamentStatus = "closed"
-	}
-
 	if isTournamentClosed(w, h, params) {
 		return
 	}
