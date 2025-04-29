@@ -106,9 +106,15 @@ func (c *Contract) GetUnownedBadgeListByUserCode(db *pgxpool.Pool, ctx context.C
 	)
 
 	paramQuery = append(paramQuery, userCode)
+
 	where = append(where, fmt.Sprintf("id NOT IN (SELECT badge_id FROM users_badges left join users on users.id = users_badges.user_id WHERE users.user_code = $%d)", len(paramQuery)))
 	where = append(where, "status = 'active'")
 	where = append(where, "deleted_date IS NULL")
+
+	if len(param.Keyword) > 0 {
+		paramQuery = append(paramQuery, param.Keyword)
+		where = append(where, fmt.Sprintf("name ilike concat('%%', $%d::varchar, '%%')", len(paramQuery)))
+	}
 
 	query += " WHERE " + strings.Join(where, " AND ")
 	{

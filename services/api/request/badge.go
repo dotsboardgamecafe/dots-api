@@ -113,6 +113,7 @@ func (param *BadgeParam) ParseBadge(values url.Values) error {
 }
 
 type UnownedBadgeParam struct {
+	Keyword string `json:"keyword"`
 	Page    int    `json:"page"`
 	Limit   int    `json:"limit"`
 	Offset  int    `json:"offset"`
@@ -127,6 +128,10 @@ func (param *UnownedBadgeParam) ParseBadge(values url.Values) error {
 	param.Sort = "desc"
 	param.SortKey = "created_date"
 	param.Offset = 0
+
+	if keyword, ok := values["keyword"]; ok && len(keyword) > 0 {
+		param.Keyword = keyword[0]
+	}
 
 	if page, ok := values["page"]; ok && len(page) > 0 {
 		if p, err := strconv.Atoi(page[0]); err == nil && p > 1 {
