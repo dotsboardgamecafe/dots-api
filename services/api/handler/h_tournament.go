@@ -623,6 +623,7 @@ func (h *Contract) SetWinnerTournamentAct(w http.ResponseWriter, r *http.Request
 		tournamentCode = chi.URLParam(r, "code")
 		ctx            = context.TODO()
 		m              = model.Contract{App: h.App}
+		queueHost      = m.Config.GetString("queue.rabbitmq.host")
 	)
 
 	// Binding and Validate
@@ -668,7 +669,9 @@ func (h *Contract) SetWinnerTournamentAct(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	var participantIds []int64
+	var (
+		participantIds []int64
+	)
 	for _, req := range reqs.TournamentParticipant {
 		var statusWinner bool
 
@@ -730,7 +733,7 @@ func (h *Contract) SetWinnerTournamentAct(w http.ResponseWriter, r *http.Request
 				return
 			}
 
-			go func(userID int64) { // Publisher badge
+			go func(userID int64, position int) { // Publisher badge
 				queueData := rabbit.QueueDataPayload(
 					rabbit.QueueUserBadge,
 					rabbit.QueueUserBadgeReq(
@@ -738,12 +741,25 @@ func (h *Contract) SetWinnerTournamentAct(w http.ResponseWriter, r *http.Request
 						userID,
 					),
 				)
-				queueHost := m.Config.GetString("queue.rabbitmq.host")
 				err = rabbit.PublishQueue(ctx, queueHost, queueData)
 				if err != nil {
 					log.Printf("Error : %s", err)
 				}
-			}(userId)
+
+				if position == 1 {
+					queueData := rabbit.QueueDataPayload(
+						rabbit.QueueUserBadge,
+						rabbit.QueueUserBadgeReq(
+							utils.TournamentWon,
+							userID,
+						),
+					)
+					err = rabbit.PublishQueue(ctx, queueHost, queueData)
+					if err != nil {
+						log.Printf("Error : %s", err)
+					}
+				}
+			}(userId, req.Position)
 		} else {
 			userId, err := m.GetUserIdByUserCode(h.DB, ctx, req.UserCode)
 			if err != nil {

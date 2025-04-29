@@ -155,6 +155,29 @@ func (h *Contract) CheckUserBadge(ctx context.Context, badgeType string, userId 
 				} else {
 					badgeRules = append(badgeRules, false)
 				}
+			} else if badgeRule.KeyCondition == utils.TournamentWon {
+				var requiredTournamentWon int
+				valueJSON, err := json.Marshal(badgeRule.Value)
+				if err != nil {
+					return h.errHandler("model.CheckBadge", err, utils.ErrUnmarshallingBadgeRule)
+				}
+
+				err = json.Unmarshal(valueJSON, &requiredTournamentWon)
+				if err != nil {
+					return h.errHandler("model.CheckBadge", err, utils.ErrUnmarshallingBadgeRule)
+				}
+
+				totalTournamenWon, err := m.CountTournamentWinnerByUserId(h.DB, ctx, userId)
+				if err != nil {
+					return h.errHandler("model.CheckBadge", err, utils.ErrGettingTotalInvoiceAmount)
+				}
+
+				if requiredTournamentWon <= totalTournamenWon {
+					badgeRules = append(badgeRules, true)
+				} else {
+					badgeRules = append(badgeRules, false)
+				}
+
 			} else if badgeRule.KeyCondition == utils.PlayingGames {
 				var requiredDifferentGames int
 				valueJSON, err := json.Marshal(badgeRule.Value)

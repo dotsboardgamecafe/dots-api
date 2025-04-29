@@ -244,7 +244,7 @@ func (c *Contract) CountTournamentWinnerByUserId(db *pgxpool.Pool, ctx context.C
 		FROM tournament_participants tp
 			JOIN tournaments t ON tp.tournament_id = t.id
 			JOIN users u ON tp.user_id = u.id
-		WHERE u.id = $1 AND tp.status_winner = $2`
+		WHERE u.id = $1 AND tp.status_winner = $2 AND tp.position = 1`
 	)
 
 	err = db.QueryRow(ctx, query, userId, true).Scan(&total)
