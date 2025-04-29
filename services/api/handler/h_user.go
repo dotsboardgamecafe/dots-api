@@ -349,7 +349,7 @@ func (h *Contract) UpdateUserProfileAct(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if currentData.ImageURL.String == "" {
+	if currentData.ImageURL.String == "" && imageUri != "" {
 		m.AddUserPoint(tx, ctx, int64(currentData.ID), utils.UserPointType["PROFILE"], userCode, utils.UpdateProfile.Int())
 	}
 

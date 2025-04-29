@@ -86,7 +86,7 @@ func (c *Contract) GetUserBadgeList(db *pgxpool.Pool, ctx context.Context, userC
 		where = append(where, strings.Join(orWhere, " AND "))
 	}
 
-	where = append(where, fmt.Sprintf("(user_id IS NOT NULL AND b.badge_category = '%s')", utils.BadgeCategoryTournament.String()))
+	where = append(where, fmt.Sprintf("((user_id IS NOT NULL AND b.badge_category = '%[1]s') or b.badge_category != '%[1]s')", utils.BadgeCategoryTournament.String()))
 	// Append All Where Conditions
 	if len(where) > 0 {
 		query += " WHERE b.status = 'active' AND " + strings.Join(where, " AND ")
