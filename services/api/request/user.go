@@ -83,7 +83,26 @@ func (param *UserParam) ParseUser(values url.Values) error {
 		}
 
 		arrStr := new(array.ArrStr)
-		if exist, _ := arrStr.InArray(order[0], []string{"id", "email", "username", "fullname", "status", "created_date"}); exist {
+		orderList := []string{
+			"id",
+			"email",
+			"username",
+			"fullname",
+			"status",
+			"created_date",
+			"latest_point",
+			"stats_room_normal",
+			"stats_room_event",
+			"stats_tournament",
+			"stats_badge",
+			"stats_game",
+		}
+
+		if exist, _ := arrStr.InArray(order[0], orderList); exist {
+			if strings.Contains(order[0], "stats_") {
+				order[0] = strings.Replace(order[0], "stats_", "", 1) + "_count"
+			}
+
 			param.Order = order[0]
 		}
 	}

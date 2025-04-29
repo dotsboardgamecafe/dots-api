@@ -9,6 +9,7 @@ type UserRes struct {
 	DateOfBirth        string       `json:"date_of_birth"`
 	Gender             string       `json:"gender"`
 	ImageURL           string       `json:"image_url"`
+	UserStats          UserStatsRes `json:"stats"`
 	LatestPoint        int          `json:"latest_point"`
 	LatestTier         string       `json:"latest_tier"`
 	Password           string       `json:"password"`
@@ -63,4 +64,13 @@ type PlayerActivitiesRes struct {
 
 type UserStyleRes struct {
 	Color string `json:"color"`
+}
+
+type UserStatsRes struct {
+	VP              int `json:"vp"`
+	RoomNormalCount int `json:"room_normal"`
+	RoomEventCount  int `json:"room_event"`
+	TournamentCount int `json:"tournament"`
+	BadgeCount      int `json:"badge"`
+	GameCount       int `json:"game"`
 }

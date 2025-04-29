@@ -41,7 +41,14 @@ func (h *Contract) GetUserListAct(w http.ResponseWriter, r *http.Request) {
 
 	// Populate response
 	for _, v := range data {
-		fmt.Println(v.UserStyle)
+		stats := response.UserStatsRes{
+			VP:              v.LatestPoint,
+			RoomNormalCount: int(v.RoomNormalCount.Int64),
+			RoomEventCount:  int(v.RoomEventCount.Int64),
+			TournamentCount: int(v.TournamentCount.Int64),
+			BadgeCount:      int(v.BadgeCount.Int64),
+			GameCount:       int(v.GameCount.Int64),
+		}
 		res = append(res, response.UserRes{
 			UserCode:           v.UserCode,
 			Email:              v.Email.String,
@@ -51,6 +58,7 @@ func (h *Contract) GetUserListAct(w http.ResponseWriter, r *http.Request) {
 			DateOfBirth:        v.DateOfBirth.String,
 			Gender:             v.Gender.String,
 			ImageURL:           v.ImageURL.String,
+			UserStats:          stats,
 			LatestPoint:        v.LatestPoint,
 			LatestTier:         v.LatestTierName,
 			Password:           v.Password,

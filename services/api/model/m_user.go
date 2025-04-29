@@ -50,6 +50,11 @@ type UserEnt struct {
 	FullName           string         `db:"fullname"`
 	ImageURL           sql.NullString `db:"image_url"`
 	LatestPoint        int            `db:"latest_point"`
+	RoomNormalCount    sql.NullInt64  `db:"room_normal_count"`
+	RoomEventCount     sql.NullInt64  `db:"room_event_count"`
+	TournamentCount    sql.NullInt64  `db:"tournament_count"`
+	BadgeCount         sql.NullInt64  `db:"badge_count"`
+	GameCount          sql.NullInt64  `db:"game_count"`
 	LatestTierId       int            `db:"latest_tier_id"`
 	LatestTierName     string         `db:"latest_tier_name"`
 	TierMinRangePoint  int            `db:"tier_min_range_point"`
@@ -293,7 +298,35 @@ func (c *Contract) GetUserList(db *pgxpool.Pool, ctx context.Context, param requ
 		paramQuery []interface{}
 		totalData  int
 
-		query = `SELECT users.id AS id,
+		query = `
+		with users_rooms_participation as (
+		select user_id, count(r.room_type = 'normal' or NULL) as normal_count, count(r.room_type = 'special_event' or NULL) event_count  from rooms r
+			join rooms_participants rp on r.id = rp.room_id 
+			where
+				r.status = 'inactive' and
+				r.deleted_date is null and 
+				rp.status = 'active'
+			group by user_id
+		),
+		users_tournaments_participation as (
+			select user_id, count(*) as tournament_count  from tournaments t
+				join tournament_participants tp on t.id = tp.tournament_id
+				where
+					t.status = 'inactive' and
+					t.deleted_date is null and 
+					tp.status = 'active'
+				group by user_id
+		),
+		users_badges_owned as (
+			select ub.user_id, count(*) badge_count from badges b
+			join users_badges ub on b.id = ub.badge_id and b.status = 'active' and b.deleted_date is null
+			group by ub.user_id
+		),
+		users_game_boards_collection as (
+			select user_id, count(*) game_count from users_game_collections
+			group by user_id
+		)
+		SELECT users.id AS id,
 						user_code,
 						email,
 						date_of_birth,
@@ -303,6 +336,11 @@ func (c *Contract) GetUserList(db *pgxpool.Pool, ctx context.Context, param requ
 						fullname,
 						image_url,
 						latest_point,
+						coalesce(urp.normal_count, 0) as room_normal_count,
+						coalesce(urp.event_count, 0) as room_event_count,
+						coalesce(utp.tournament_count, 0) as tournament_count,
+						coalesce(ubo.badge_count, 0) as badge_count,
+						coalesce(ugc.game_count, 0) as game_count,
 						tiers.id AS latest_tier_id,
 						tiers.name AS latest_tier_name,
 						password,
@@ -321,7 +359,11 @@ func (c *Contract) GetUserList(db *pgxpool.Pool, ctx context.Context, param requ
 					) AS redeem_histories ON users.id = redeem_histories.user_id
 					LEFT JOIN (
 						SELECT user_id, SUM(price) AS total_booking_price FROM users_transactions WHERE status = 'PAID' GROUP BY user_id
-					) AS booking_transactions ON users.id = booking_transactions.user_id`
+					) AS booking_transactions ON users.id = booking_transactions.user_id
+					LEFT JOIN users_rooms_participation as urp ON users.id = urp.user_id
+					LEFT JOIN users_tournaments_participation as utp ON users.id = utp.user_id
+					LEFT JOIN users_badges_owned as ubo ON users.id = ubo.user_id
+					LEFT JOIN users_game_boards_collection as ugc ON users.id = ugc.user_id`
 	)
 
 	// Populate Search
@@ -404,6 +446,11 @@ func (c *Contract) GetUserList(db *pgxpool.Pool, ctx context.Context, param requ
 			&res.FullName,
 			&res.ImageURL,
 			&res.LatestPoint,
+			&res.RoomNormalCount,
+			&res.RoomEventCount,
+			&res.TournamentCount,
+			&res.BadgeCount,
+			&res.GameCount,
 			&res.LatestTierId,
 			&res.LatestTierName,
 			&res.Password,
