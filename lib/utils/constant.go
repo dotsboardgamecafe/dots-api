@@ -31,7 +31,7 @@ func (b BadgeCategory) Valid() bool {
 var (
 	DATE_TIME_FORMAT = "2006-01-02 15:04:05"
 	DATE_FORMAT      = "2006-01-02"
-	DATE_DAY_FORMAT  = "01 Jan 2006"
+	DATE_DAY_FORMAT  = "02 Jan 2006"
 	YEAR_FORMAT      = "2006"
 	TIME_FORMAT      = "15:04:05"
 
