@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"dots-api/bootstrap"
+	"dots-api/lib/onesignal"
 	"dots-api/lib/rabbit"
 	"dots-api/lib/utils"
 	"dots-api/services/api/model"
@@ -390,40 +391,48 @@ func (h *Contract) AddTournamentAct(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	dataListUser, err := m.GetAllUsers(m.DB, ctx)
-	if err != nil {
-		h.SendBadRequest(w, err.Error())
-		return
-	}
-	for _, user := range dataListUser {
-
-		// Generate Notification code
-		notifCode := utils.GeneratePrefixCode(utils.NotifPrefix)
-
-		description := response.NotificationTournamentResp{
-			StartDate:   req.StartDate,
-			StartTime:   req.StartTime,
-			EndTime:     req.EndTime,
-			CafeName:    gameEnt.CafeName,
-			GameName:    gameEnt.Name,
-			CafeAddress: gameEnt.CafeAddress,
-			Level:       req.Level,
-		}
-
-		descriptionJSON, err := json.Marshal(description)
-		if err != nil {
-			h.SendBadRequest(w, utils.ErrMarshalData)
-			return
-		}
-
-		// Insert data into db
-		err = m.AddNotification(m.DB, ctx, notifCode, "user", user.UserCode, tournamentCode, utils.TournamentReminder, req.Name, descriptionJSON, req.ImageUrl)
+	go func() {
+		dataListUser, err := m.GetAllUsers(m.DB, ctx)
 		if err != nil {
 			h.SendBadRequest(w, err.Error())
 			return
 		}
 
-	}
+		onesignal := onesignal.New(m.App)
+		for _, user := range dataListUser {
+
+			// Generate Notification code
+			notifCode := utils.GeneratePrefixCode(utils.NotifPrefix)
+
+			description := response.NotificationTournamentResp{
+				StartDate:   startDate.(time.Time).Format("2006-01-02"),
+				StartTime:   startTime.(time.Time).Format("15:04:05"),
+				EndTime:     endTime.(time.Time).Format("15:04:05"),
+				CafeName:    gameEnt.CafeName,
+				GameName:    gameEnt.Name,
+				CafeAddress: gameEnt.CafeAddress,
+				Level:       req.Level,
+			}
+
+			descriptionJSON, err := json.Marshal(description)
+			if err != nil {
+				h.WriteLog("h.AddTournament: ", err)
+				continue
+			}
+
+			OSDescription := utils.TournamentReminderPushNotificationDescription + "\n\n" + "Tournament name: " + req.Name + "\n" + "Date: " + startDate.(time.Time).Format("02 January 2006") + "\n" + "Location: " + description.CafeName
+			_, err = onesignal.CreateOSNotifications(user.XPlayer, req.Name, OSDescription, utils.Tournament)
+			if err != nil {
+				h.WriteLog("h.AddTournament: ", err)
+				continue
+			}
+
+			err = m.AddNotification(m.DB, ctx, notifCode, "user", user.UserCode, tournamentCode, utils.TournamentReminder, req.Name, descriptionJSON, req.ImageUrl)
+			if err != nil {
+				h.WriteLog("h.AddTournament: ", err)
+			}
+		}
+	}()
 
 	h.SendSuccess(w, nil, nil)
 }
@@ -572,24 +581,24 @@ func (h *Contract) UpdateTournamentAct(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if req.Status == utils.StatusTournament[1] {
-		go removeUpcomingRoomNotification(&m, ctx, tournamentCode, utils.TournamentReminder)
-	} else {
+	go removeUpcomingRoomNotification(&m, ctx, tournamentCode, utils.TournamentReminder)
+	go func() {
 		dataListUser, err := m.GetAllUsers(m.DB, ctx)
 		if err != nil {
-			h.SendBadRequest(w, err.Error())
+			h.WriteLog("h.UpdateTournamentAct: ", err)
 			return
 		}
 
+		onesignal := onesignal.New(h.App)
 		for _, user := range dataListUser {
 
 			// Generate Notification code
 			notifCode := utils.GeneratePrefixCode(utils.NotifPrefix)
 
 			description := response.NotificationTournamentResp{
-				StartDate:   req.StartDate,
-				StartTime:   req.StartTime,
-				EndTime:     req.EndTime,
+				StartDate:   startDate.(time.Time).Format("2006-01-02"),
+				StartTime:   startTime.(time.Time).Format("15:04:05"),
+				EndTime:     endTime.(time.Time).Format("15:04:05"),
 				CafeName:    tournament.CafeName,
 				GameName:    tournament.GameName,
 				CafeAddress: tournament.CafeAddress,
@@ -598,19 +607,23 @@ func (h *Contract) UpdateTournamentAct(w http.ResponseWriter, r *http.Request) {
 
 			descriptionJSON, err := json.Marshal(description)
 			if err != nil {
-				h.SendBadRequest(w, utils.ErrMarshalData)
-				return
+				h.WriteLog("h.UpdateTournamentAct: ", err)
+				continue
 			}
 
-			// Insert data into db
+			OSDescription := utils.TournamentReminderPushNotificationDescription + "\n\n" + "Tournament name: " + req.Name + "\n" + "Date: " + startDate.(time.Time).Format("02 January 2006") + "\n" + "Location: " + description.CafeName
+			_, err = onesignal.CreateOSNotifications(user.XPlayer, req.Name, OSDescription, utils.Tournament)
+			if err != nil {
+				h.WriteLog("h.UpdateTournamentAct: ", err)
+				continue
+			}
+
 			err = m.AddNotification(m.DB, ctx, notifCode, "user", user.UserCode, tournamentCode, utils.TournamentReminder, req.Name, descriptionJSON, req.ImageUrl)
 			if err != nil {
-				h.SendBadRequest(w, err.Error())
-				return
+				h.WriteLog("h.UpdateTournamentAct: ", err)
 			}
-
 		}
-	}
+	}()
 
 	h.SendSuccess(w, nil, nil)
 }
@@ -1039,6 +1052,53 @@ func (h *Contract) UpdateTournamentStatus(w http.ResponseWriter, r *http.Request
 	if err != nil {
 		h.SendBadRequest(w, err.Error())
 		return
+	}
+
+	if req.Status == utils.StatusTournament[0] {
+		go func() {
+			dataListUser, err := m.GetAllUsers(m.DB, ctx)
+			if err != nil {
+				h.WriteLog("h.UpdateTournamentStatus: ", err)
+				return
+			}
+
+			onesignal := onesignal.New(h.App)
+			for _, user := range dataListUser {
+
+				// Generate Notification code
+				notifCode := utils.GeneratePrefixCode(utils.NotifPrefix)
+
+				description := response.NotificationTournamentResp{
+					StartDate:   tournament.StartDate.Time.Format("2006-01-02"),
+					StartTime:   tournament.StartTime.Format("15:04:05"),
+					EndTime:     tournament.EndTime.Format("15:04:05"),
+					CafeName:    tournament.CafeName,
+					GameName:    tournament.GameName,
+					CafeAddress: tournament.CafeAddress,
+					Level:       tournament.Level,
+				}
+
+				descriptionJSON, err := json.Marshal(description)
+				if err != nil {
+					h.WriteLog("h.UpdateTournamentStatus: ", err)
+					continue
+				}
+
+				OSDescription := utils.TournamentReminderPushNotificationDescription + "\n\n" + "Tournament name: " + tournament.Name.String + "\n" + "Date: " + tournament.StartDate.Time.Format("02 January 2006") + "\n" + "Location: " + description.CafeName
+				_, err = onesignal.CreateOSNotifications(user.XPlayer, tournament.Name.String, OSDescription, utils.Tournament)
+				if err != nil {
+					h.WriteLog("h.UpdateTournamentStatus: ", err)
+					continue
+				}
+
+				err = m.AddNotification(m.DB, ctx, notifCode, "user", user.UserCode, tournamentCode, utils.TournamentReminder, tournament.Name.String, descriptionJSON, tournament.ImageUrl.String)
+				if err != nil {
+					h.WriteLog("h.UpdateTournamentStatus: ", err)
+				}
+			}
+		}()
+	} else {
+		go removeUpcomingRoomNotification(&m, ctx, tournamentCode, utils.TournamentReminder)
 	}
 
 	h.SendSuccess(w, nil, nil)

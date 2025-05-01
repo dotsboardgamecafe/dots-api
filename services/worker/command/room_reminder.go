@@ -21,9 +21,6 @@ func (app Contract) UserRoomReminder(c *cli.Context) error {
 	var err error
 	now := time.Now().UTC()
 
-	// Calculate h-3 reminder
-	h3Reminder := now.AddDate(0, 0, 3).Format(utils.DATE_FORMAT)
-
 	// Calculate h-1 reminder
 	h1Reminder := now.AddDate(0, 0, 1).Format(utils.DATE_FORMAT)
 
@@ -69,56 +66,15 @@ func (app Contract) UserRoomReminder(c *cli.Context) error {
 			}
 
 			onesignal := onesignal.New(m.App)
-			OSDescription := utils.RoomReminderPushNotificationDescription + "\n\n" + "Room name: " + room.Name + "\n" + "Date: " + room.StartDate.Time.Format("2006-01-02") + "\n" + "Location: " + room.CafeName
-			_, err = onesignal.CreateOSNotifications(user.UserXPlayer, utils.RoomReminderPushNotificationTitle, OSDescription, utils.Room)
+			OSDescription := utils.RoomReminderPushNotificationDescription + "\n\n" + "Room name: " + room.Name + "\n" + "Date: " + room.StartDate.Time.Format("02 January 2006") + "\n" + "Location: " + room.CafeName
+			_, err = onesignal.CreateOSNotifications(
+				user.UserXPlayer,
+				room.Name,
+				OSDescription,
+				utils.Room,
+			)
 			if err != nil {
 				log.Printf("Error : %s", err)
-			}
-
-		}
-	}
-
-	dataListRoom, err = m.GetRoomList(m.DB, ctx, h3Reminder)
-	if err != nil {
-		return err
-	}
-
-	for _, room := range dataListRoom {
-
-		dataListUser, err := m.GetAllParticipantByRoomCode(m.DB, ctx, room.RoomCode)
-		if err != nil {
-			return err
-		}
-		// Populate response
-		for _, user := range dataListUser {
-
-			// Generate Notification code
-			notifCode := utils.GeneratePrefixCode(utils.NotifPrefix)
-
-			description := response.NotificationRoomResp{
-				StartDate:   room.StartDate.Time.Format("2006-01-02"),
-				CafeName:    room.CafeName,
-				CafeAddress: room.CafeAddress,
-				GameName:    room.CafeName,
-				Level:       room.Difficulty,
-			}
-
-			descriptionJSON, err := json.Marshal(description)
-			if err != nil {
-				return err
-			}
-
-			// Insert data into db
-			err = m.AddNotification(m.DB, ctx, notifCode, "user", user.UserCode, room.RoomCode, utils.RoomBookingType, room.Name, descriptionJSON, room.RoomImgUrl)
-			if err != nil {
-				return err
-			}
-
-			onesignal := onesignal.New(m.App)
-			OSDescription := utils.RoomReminderPushNotificationDescription + "\n\n" + "Room name: " + room.Name + "\n" + "Date: " + room.StartDate.Time.Format("2006-01-02") + "\n" + "Location: " + room.CafeName
-			_, err = onesignal.CreateOSNotifications(user.UserXPlayer, utils.RoomReminderPushNotificationTitle, OSDescription, utils.Room)
-			if err != nil {
-				return err
 			}
 
 		}

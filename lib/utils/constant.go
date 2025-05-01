@@ -123,8 +123,8 @@ var (
 	SuccessPaymentTitle                           = "Pembayaran Berhasil!"
 	RoomReminderPushNotificationTitle             = "Roll for Initiative! Epic D&D Special Event Awaits"
 	TournamentReminderPushNotificationTitle       = "Heads Up! Don't Miss the Upcoming Tournament"
-	RoomReminderPushNotificationDescription       = "Calling all adventurers! Dust off your dice and sharpen your spells for a legendary Dungeons & Dragons. Glory, loot, and bragging rights await!"
-	TournamentReminderPushNotificationDescription = "Calling all thrill-seekers and competitive spirits! Get ready for an epic tournament that'll have you on the edge of your seat. Mark your calendars and join the fun!"
+	RoomReminderPushNotificationDescription       = "No plans? Come join us tomorrow!"
+	TournamentReminderPushNotificationDescription = "No plans? Come join us tomorrow!"
 
 	LevelUpType  = "level_up"
 	LevelUpTitle = "Selamat! Anda Naik Level!"

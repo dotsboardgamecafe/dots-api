@@ -127,7 +127,7 @@ func (c *Contract) GetExpiredRoomLists(db *pgxpool.Pool, ctx context.Context) ([
 	var (
 		err   error
 		list  []RoomEnt
-		query = `SELECT room_code, room_type, end_date, end_time, status FROM rooms WHERE end_date < NOW()`
+		query = `SELECT room_code, room_type, start_date, start_time, status FROM rooms WHERE start_date <= NOW() and deleted_date IS NULL`
 	)
 
 	rows, err := db.Query(ctx, query)
@@ -140,7 +140,7 @@ func (c *Contract) GetExpiredRoomLists(db *pgxpool.Pool, ctx context.Context) ([
 
 	for rows.Next() {
 		var data RoomEnt
-		err = rows.Scan(&data.RoomCode, &data.RoomType, &data.EndDate, &data.EndTime, &data.Status)
+		err = rows.Scan(&data.RoomCode, &data.RoomType, &data.StartDate, &data.StartTime, &data.Status)
 		if err != nil {
 			return nil, c.errHandler("model.GetExpiredRoomLists", err, utils.ErrScanningListRoom)
 		}

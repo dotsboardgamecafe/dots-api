@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"dots-api/bootstrap"
+	"dots-api/lib/onesignal"
 	"dots-api/lib/rabbit"
 	"dots-api/lib/utils"
 	"dots-api/services/api/model"
@@ -288,6 +289,8 @@ func (h *Contract) AddRoom(w http.ResponseWriter, r *http.Request) {
 			h.SendBadRequest(w, err.Error())
 			return
 		}
+
+		onesignal := onesignal.New(m.App)
 		notificationType := utils.UpcomingSession
 		if req.RoomType == utils.RoomType[1] {
 			notificationType = utils.UpcomingEvent
@@ -298,25 +301,33 @@ func (h *Contract) AddRoom(w http.ResponseWriter, r *http.Request) {
 			// Generate Notification code
 			notifCode := utils.GeneratePrefixCode(utils.NotifPrefix)
 
-			description := response.NotificationTournamentResp{
-				StartDate:   req.StartDate,
-				StartTime:   req.StartTime,
-				EndTime:     req.EndTime,
+			description := response.NotificationRoomResp{
+				StartDate:   startDate.(time.Time).Format("2006-01-02"),
 				CafeName:    gameEnt.CafeName,
 				GameName:    gameEnt.Name,
 				CafeAddress: gameEnt.CafeAddress,
 				Level:       req.Difficulty,
 			}
-
 			descriptionJSON, err := json.Marshal(description)
 			if err != nil {
-				fmt.Println("h.AddRoom.UpcomingEvent: ", err.Error())
+				h.WriteLog("h.AddRoom: ", err)
+			}
+
+			OSDescription := utils.RoomReminderPushNotificationDescription + "\n\n" + "Room name: " + req.Name + "\n" + "Date: " + startDate.(time.Time).Format("02 January 2006") + "\n" + "Location: " + gameEnt.CafeName
+			_, err = onesignal.CreateOSNotifications(
+				user.XPlayer,
+				req.Name,
+				OSDescription,
+				utils.Room,
+			)
+			if err != nil {
+				h.WriteLog("h.AddRoom: ", err)
 			}
 
 			// Insert data into db
 			err = m.AddNotification(m.DB, ctx, notifCode, "user", user.UserCode, code, notificationType, req.Name, descriptionJSON, req.ImageURL)
 			if err != nil {
-				fmt.Println("h.AddRoom.UpcomingEvent: ", err.Error())
+				h.WriteLog("h.AddRoom: ", err)
 			}
 		}
 	}()
@@ -353,6 +364,12 @@ func (h *Contract) UpdateRoom(w http.ResponseWriter, r *http.Request) {
 
 	// Get Admin Id
 	gameMasterId, err := m.GetAdminIdByCode(h.DB, ctx, req.GameMasterCode)
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		return
+	}
+
+	gameEnt, err := m.GetGameByCode(h.DB, ctx, req.GameCode)
 	if err != nil {
 		h.SendBadRequest(w, err.Error())
 		return
@@ -407,6 +424,61 @@ func (h *Contract) UpdateRoom(w http.ResponseWriter, r *http.Request) {
 		h.SendBadRequest(w, err.Error())
 		return
 	}
+
+	notificationType := utils.UpcomingSession
+	if req.RoomType == utils.RoomType[1] {
+		notificationType = utils.UpcomingEvent
+	}
+
+	go removeUpcomingRoomNotification(&m, ctx, code, notificationType)
+	go func() {
+		dataListUser, err := m.GetAllUsers(m.DB, ctx)
+		if err != nil {
+			h.SendBadRequest(w, err.Error())
+			return
+		}
+
+		onesignal := onesignal.New(m.App)
+		notificationType := utils.UpcomingSession
+		if req.RoomType == utils.RoomType[1] {
+			notificationType = utils.UpcomingEvent
+		}
+
+		for _, user := range dataListUser {
+
+			// Generate Notification code
+			notifCode := utils.GeneratePrefixCode(utils.NotifPrefix)
+
+			description := response.NotificationRoomResp{
+				StartDate:   startDate.(time.Time).Format("2006-01-02"),
+				CafeName:    gameEnt.CafeName,
+				GameName:    req.Name,
+				CafeAddress: gameEnt.CafeAddress,
+				Level:       req.Difficulty,
+			}
+			descriptionJSON, err := json.Marshal(description)
+			if err != nil {
+				h.WriteLog("h.UpdateRoom: ", err)
+			}
+
+			OSDescription := utils.RoomReminderPushNotificationDescription + "\n\n" + "Room name: " + req.Name + "\n" + "Date: " + startDate.(time.Time).Format("02 January 2006") + "\n" + "Location: " + gameEnt.CafeName
+			_, err = onesignal.CreateOSNotifications(
+				user.XPlayer,
+				req.Name,
+				OSDescription,
+				utils.Room,
+			)
+			if err != nil {
+				h.WriteLog("h.UpdateRoom: ", err)
+			}
+
+			// Insert data into db
+			err = m.AddNotification(m.DB, ctx, notifCode, "user", user.UserCode, code, notificationType, req.Name, descriptionJSON, req.ImageURL)
+			if err != nil {
+				h.WriteLog("h.UpdateRoom: ", err)
+			}
+		}
+	}()
 
 	h.SendSuccess(w, nil, nil)
 }
@@ -733,6 +805,8 @@ func (h *Contract) UpdateRoomStatus(w http.ResponseWriter, r *http.Request) {
 				h.SendBadRequest(w, err.Error())
 				return
 			}
+
+			onesignal := onesignal.New(m.App)
 			notificationType := utils.UpcomingSession
 			if room.RoomType == utils.RoomType[1] {
 				notificationType = utils.UpcomingEvent
@@ -743,27 +817,34 @@ func (h *Contract) UpdateRoomStatus(w http.ResponseWriter, r *http.Request) {
 				// Generate Notification code
 				notifCode := utils.GeneratePrefixCode(utils.NotifPrefix)
 
-				description := response.NotificationTournamentResp{
-					StartDate:   room.StartDate.Time.String(),
-					StartTime:   room.StartTime.String(),
-					EndTime:     room.EndTime.String(),
+				description := response.NotificationRoomResp{
+					StartDate:   room.StartDate.Time.Format("2006-01-02"),
 					CafeName:    room.CafeName,
 					GameName:    room.Name,
 					CafeAddress: room.CafeAddress,
 					Level:       room.Difficulty,
 				}
-
 				descriptionJSON, err := json.Marshal(description)
 				if err != nil {
-					fmt.Println("h.AddRoom.UpcomingEvent: ", err.Error())
+					h.WriteLog("h.UpdateRoomStatus: ", err)
+				}
+
+				OSDescription := utils.RoomReminderPushNotificationDescription + "\n\n" + "Room name: " + room.Name + "\n" + "Date: " + room.StartDate.Time.Format("02 January 2006") + "\n" + "Location: " + room.CafeName
+				_, err = onesignal.CreateOSNotifications(
+					user.XPlayer,
+					room.Name,
+					OSDescription,
+					utils.Room,
+				)
+				if err != nil {
+					h.WriteLog("h.UpdateRoomStatus: ", err)
 				}
 
 				// Insert data into db
 				err = m.AddNotification(m.DB, ctx, notifCode, "user", user.UserCode, room.RoomCode, notificationType, room.Name, descriptionJSON, room.BannerRoomUrl)
 				if err != nil {
-					fmt.Println("h.AddRoom.UpcomingEvent: ", err.Error())
+					h.WriteLog("h.UpdateRoomStatus: ", err)
 				}
-
 			}
 		}()
 	}

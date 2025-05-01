@@ -61,6 +61,7 @@ type (
 		GameRelated        sql.NullString `db:"game_related_list"`
 		GameRoomAvailables sql.NullString `db:"room_available_list"`
 		NumberOfPopularity int64          `db:"number_of_popularity"`
+		TotalPlayed        int64          `db:"total_played"`
 	}
 )
 
@@ -93,6 +94,17 @@ func (c *Contract) GetGameList(db *pgxpool.Pool, ctx context.Context, param requ
 			SELECT game_id, COUNT(distinct user_id) as number_of_collection
 			FROM (SELECT DISTINCT ugc.game_id, ugc.user_id FROM users_game_collections ugc) unique_collections 
 			GROUP BY game_id
+		),
+		games_played AS (
+			SELECT game_id, COUNT(*) as total_played FROM rooms r 
+			WHERE r.start_date < now() AND r.deleted_date is null AND
+			EXISTS (select 1 from rooms_participants rp where rp.room_id = r.id AND rp.status_winner is true)
+			GROUP BY game_id
+			UNION
+			SELECT game_id, COUNT(*) as total_played FROM tournaments t 
+			WHERE t.start_date < now() AND t.deleted_date is null AND
+			EXISTS (select 1 from tournament_participants tp where tp.tournament_id = t.id AND tp.status_winner is true)
+			GROUP BY t.game_id
 		)
 		SELECT 
 			g.id,
@@ -113,7 +125,8 @@ func (c *Contract) GetGameList(db *pgxpool.Pool, ctx context.Context, param requ
 			a.admin_code, 
 			COALESCE(gc.categories, '[]'::json) as categories,
 			c.city AS location, 
-			COALESCE(gp.number_of_popularity, 0) + coalesce(gcols.number_of_collection, 0) AS number_of_popularity
+			COALESCE(gp.number_of_popularity, 0) + coalesce(gcols.number_of_collection, 0) AS number_of_popularity,
+			COALESCE(gtp.total_played, 0) AS total_played
 		FROM games g
 		LEFT JOIN games_popularity gp ON gp.game_id = g.id
 		LEFT JOIN game_collections gcols on gcols.game_id = g.id
@@ -127,6 +140,7 @@ func (c *Contract) GetGameList(db *pgxpool.Pool, ctx context.Context, param requ
 			WHERE game_id = g.id 
 			GROUP BY game_id
 		) gc ON true
+		LEFT JOIN games_played gtp ON g.id = gtp.game_id
 		`
 	)
 
@@ -249,7 +263,7 @@ func (c *Contract) GetGameList(db *pgxpool.Pool, ctx context.Context, param requ
 	defer rows.Close()
 	for rows.Next() {
 		var data GameResp
-		err = rows.Scan(&data.Id, &data.CafeCode, &data.CafeName, &data.GameCode, &data.GameType, &data.Name, &data.ImageUrl, &data.CollectionUrl, &data.Description, &data.Status, &data.Duration, &data.MinimalParticipant, &data.MaximumParticipant, &data.Difficulty, &data.Level, &data.AdminCode, &data.GameCategories, &data.Location, &data.NumberOfPopularity)
+		err = rows.Scan(&data.Id, &data.CafeCode, &data.CafeName, &data.GameCode, &data.GameType, &data.Name, &data.ImageUrl, &data.CollectionUrl, &data.Description, &data.Status, &data.Duration, &data.MinimalParticipant, &data.MaximumParticipant, &data.Difficulty, &data.Level, &data.AdminCode, &data.GameCategories, &data.Location, &data.NumberOfPopularity, &data.TotalPlayed)
 		if err != nil {
 			return list, param, c.errHandler("model.GetGameList", err, utils.ErrScanningListCafe)
 		}

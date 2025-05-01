@@ -13,6 +13,7 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	validator "github.com/go-playground/validator/v10"
 	jsoniter "github.com/json-iterator/go"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -333,4 +334,11 @@ func (h *App) VersionAction(w http.ResponseWriter, r *http.Request) {
 	}
 	res := Version{Build: "1.0.2"}
 	h.SendSuccess(w, res, nil)
+}
+
+func (h *App) WriteLog(funcName string, err error) {
+	h.Log.FromDefault().WithFields(logrus.Fields{
+		"functionName": funcName,
+		"error":        err,
+	}).Errorf("Error message : %s", err.Error())
 }

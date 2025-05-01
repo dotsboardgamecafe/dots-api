@@ -44,7 +44,7 @@ func (app Contract) UpdateStatusRoomAndTournament(c *cli.Context) error {
 			now.Location(),
 		)
 
-		if room.Status == "inactive" || now.Before(startDate) {
+		if room.Status == utils.RoomStatus["INACTIVE"] || now.Before(startDate) {
 			continue
 		}
 
@@ -53,6 +53,7 @@ func (app Contract) UpdateStatusRoomAndTournament(c *cli.Context) error {
 			return err
 		}
 
+		fmt.Printf("Room %s set to inactive at %s\n", room.RoomCode, startDate.Format("2006-01-02 15:04:05"))
 		notificationType := utils.UpcomingSession
 
 		if room.RoomType == utils.RoomType[1] {
@@ -79,7 +80,7 @@ func (app Contract) UpdateStatusRoomAndTournament(c *cli.Context) error {
 			now.Location(),
 		)
 
-		if tournament.Status == "inactive" || now.Before(startDate) {
+		if tournament.Status == utils.TournamentStatus["INACTIVE"] || now.Before(startDate) {
 			continue
 		}
 
@@ -88,6 +89,7 @@ func (app Contract) UpdateStatusRoomAndTournament(c *cli.Context) error {
 			return err
 		}
 
+		fmt.Printf("Tournament %s set to inactive at %v", tournament.TournamentCode, now.Format("Monday 2006-01-02 15:04:05"))
 		removeUpcomingRoomNotification(&m, ctx, tournament.TournamentCode, utils.TournamentReminder)
 	}
 

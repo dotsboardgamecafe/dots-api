@@ -24,8 +24,12 @@ type GameRes struct {
 	GameRooms          []GameAvailableRoomRes `json:"game_rooms"`
 	GameMasters        []AdminRes             `json:"game_masters"`
 	NumberOfPopularity int64                  `json:"number_of_popularity"`
+	GameStats          GameStatsRes           `json:"stats"`
 }
 
+type GameStatsRes struct {
+	NumberOfPlayed int64 `json:"played"`
+}
 type GameDetailRes struct {
 	CafeCode                  string                          `json:"cafe_code"`
 	CafeName                  string                          `json:"cafe_name"`

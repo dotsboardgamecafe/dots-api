@@ -140,7 +140,7 @@ func (c *Contract) GetExpiredTournamentLists(db *pgxpool.Pool, ctx context.Conte
 	var (
 		err   error
 		list  []TournamentsEnt
-		query = `SELECT tournament_code, end_date, end_time, status FROM tournaments WHERE end_date < NOW()`
+		query = `SELECT tournament_code, start_date, start_time, status FROM tournaments WHERE start_date <= NOW() and deleted_date IS NULL`
 	)
 
 	rows, err := db.Query(ctx, query)
@@ -152,7 +152,7 @@ func (c *Contract) GetExpiredTournamentLists(db *pgxpool.Pool, ctx context.Conte
 
 	for rows.Next() {
 		var data TournamentsEnt
-		err = rows.Scan(&data.TournamentCode, &data.EndDate, &data.EndTime, &data.Status)
+		err = rows.Scan(&data.TournamentCode, &data.StartDate, &data.StartTime, &data.Status)
 		if err != nil {
 			return nil, c.errHandler("model.GetExpiredTournamentLists", err, utils.ErrGettingExpiredTournamentLists)
 		}
