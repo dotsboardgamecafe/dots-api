@@ -147,7 +147,7 @@ func (h *Contract) Redeem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Assign Payload
-	redeemedPayload := generatePayload(redeemCode, utils.RedeemPlatform["APP"], *invoiceDetail)
+	redeemedPayload := generatePayload(redeemCode, utils.RedeemPlatform["APP"], invoiceDetail)
 
 	// Save & Calculate Earned Point
 	earnedPoint, err := m.RedeemInvoice(h.DB, ctx, userId, *redeemedPayload)
@@ -312,7 +312,7 @@ func (h *Contract) Claim(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Assign Payload
-	redeemedPayload := generatePayload(redeemCode, utils.RedeemPlatform["CMS"], *invoiceDetail)
+	redeemedPayload := generatePayload(redeemCode, utils.RedeemPlatform["CMS"], invoiceDetail)
 
 	// Save & Calculate Earned Point
 	earnedPoint, err := m.RedeemInvoice(h.DB, ctx, userId, *redeemedPayload)

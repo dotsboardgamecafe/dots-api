@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/spf13/viper"
 )
@@ -21,8 +22,15 @@ const (
 
 type (
 	Olsera struct {
-		AppId     string
-		SecretKey string
+		Keys []OlseraKey
+	}
+
+	OlseraKey struct {
+		Name             string `json:"name"`
+		EnableRedeemOnce int    `json:"enable_redeem_once"`
+		AppId            string `json:"app_id"`
+		SecretKey        string `json:"secret_key"`
+		AccessToken      string
 	}
 
 	BearerToken struct {
@@ -94,7 +102,7 @@ type (
 	}
 )
 
-func (pos *Olsera) GenerateAccessToken() (string, error) {
+func (pos *Olsera) GenerateAccessToken(key OlseraKey) (string, error) {
 	var (
 		errorCallback ErrorResponse
 		mainError     MainError
@@ -102,10 +110,9 @@ func (pos *Olsera) GenerateAccessToken() (string, error) {
 		callback BearerToken
 	)
 	url := BASE_URL + VERSION + "/" + LANG + "/token"
-
 	values := map[string]interface{}{
-		"app_id":     pos.AppId,
-		"secret_key": pos.SecretKey,
+		"app_id":     key.AppId,
+		"secret_key": key.SecretKey,
 		"grant_type": "secret_key",
 	}
 
@@ -147,7 +154,7 @@ func (pos *Olsera) GetInvoices(invoiceCode string) (map[string]interface{}, erro
 		url += "?search=" + invoiceCode
 	}
 
-	accessToken, _ := pos.GenerateAccessToken()
+	accessToken, _ := pos.GenerateAccessToken(pos.Keys[0])
 
 	request, err := utils.RequestHandler(emptyBody, url, http.MethodGet)
 	if err != nil {
@@ -170,7 +177,7 @@ func (pos *Olsera) GetInvoices(invoiceCode string) (map[string]interface{}, erro
 	return callback, err
 }
 
-func (pos *Olsera) GetInvoice(invoiceCode string) (map[string]interface{}, *CloseOrderDetail, error) {
+func (pos *Olsera) GetInvoice(invoiceCode string) (map[string]interface{}, CloseOrderDetail, error) {
 	var (
 		errorCallback ErrorResponse
 		mainError     MainError
@@ -187,11 +194,11 @@ func (pos *Olsera) GetInvoice(invoiceCode string) (map[string]interface{}, *Clos
 		url += "?id=" + invoiceCode
 	}
 
-	accessToken, _ := pos.GenerateAccessToken()
+	accessToken, _ := pos.GenerateAccessToken(pos.Keys[0])
 
 	request, err := utils.RequestHandler(emptyBody, url, http.MethodGet)
 	if err != nil {
-		return callback, nil, err
+		return callback, orderDetailTrx, err
 	}
 
 	request.Header.Set("Content-Type", "application/json; charset=utf-8")
@@ -201,7 +208,7 @@ func (pos *Olsera) GetInvoice(invoiceCode string) (map[string]interface{}, *Clos
 	json.Unmarshal([]byte(response[0]), &errorCallback)
 	if errorCallback.Error != float64(0) || err != nil {
 		json.Unmarshal([]byte(response[0]), &mainError)
-		return emptyBody, nil, errors.New(mainError.Error.Message)
+		return emptyBody, orderDetailTrx, errors.New(mainError.Error.Message)
 	}
 
 	json.Unmarshal([]byte(response[0]), &orderDetailTrx)
@@ -218,10 +225,10 @@ func (pos *Olsera) GetInvoice(invoiceCode string) (map[string]interface{}, *Clos
 
 	utils.ResponseHandler(request)
 
-	return nil, &orderDetailTrx, err
+	return nil, orderDetailTrx, err
 }
 
-func (pos *Olsera) GetProductDetail(productId int64, accessToken string) (map[string]interface{}, *ProductDetail, error) {
+func (pos *Olsera) GetProductDetail(productId int64, accessToken string) (map[string]interface{}, ProductDetail, error) {
 	var (
 		errorCallback ErrorResponse
 		mainError     MainError
@@ -233,14 +240,9 @@ func (pos *Olsera) GetProductDetail(productId int64, accessToken string) (map[st
 	)
 
 	url := BASE_URL + VERSION + "/" + LANG + "/product/detail?id=" + fmt.Sprint(productId)
-
-	if accessToken == "" {
-		accessToken, _ = pos.GenerateAccessToken()
-	}
-
 	request, err := utils.RequestHandler(emptyBody, url, http.MethodGet)
 	if err != nil {
-		return callback, nil, err
+		return callback, productDetail, err
 	}
 
 	request.Header.Set("Content-Type", "application/json; charset=utf-8")
@@ -250,16 +252,17 @@ func (pos *Olsera) GetProductDetail(productId int64, accessToken string) (map[st
 	json.Unmarshal([]byte(response[0]), &errorCallback)
 	if errorCallback.Error != float64(0) || err != nil {
 		json.Unmarshal([]byte(response[0]), &mainError)
-		return emptyBody, nil, errors.New(mainError.Error.Message)
+		return emptyBody, productDetail, errors.New(mainError.Error.Message)
 	}
 
 	json.Unmarshal([]byte(response[0]), &productDetail)
 	utils.ResponseHandler(request)
 
-	return nil, &productDetail, err
+	return nil, productDetail, err
 }
 
-func (pos *Olsera) GetInvoiceCodeFromList(invoiceCode string) (*map[string]interface{}, *CloseOrderDetail, error) {
+func (pos *Olsera) getInvoiceCodeFromList(wg *sync.WaitGroup, key OlseraKey, invoiceCode string) (map[string]interface{}, CloseOrderDetail, error) {
+	defer wg.Done()
 	var (
 		callback  map[string]interface{}
 		emptyBody map[string]interface{}
@@ -270,23 +273,22 @@ func (pos *Olsera) GetInvoiceCodeFromList(invoiceCode string) (*map[string]inter
 		orderTrx       CloseOrder
 		orderDetailTrx CloseOrderDetail
 	)
+
+	key.AccessToken, _ = pos.GenerateAccessToken(key)
 	orderUri := BASE_URL + VERSION + "/" + LANG + "/order/closeorder?search=" + invoiceCode
-
-	accessToken, _ := pos.GenerateAccessToken()
-
 	request, err := utils.RequestHandler(emptyBody, orderUri, http.MethodGet)
 	if err != nil {
-		return &callback, nil, err
+		return callback, orderDetailTrx, err
 	}
 
 	request.Header.Set("Content-Type", "application/json; charset=utf-8")
-	request.Header.Set("Authorization", "Bearer "+accessToken)
+	request.Header.Set("Authorization", "Bearer "+key.AccessToken)
 	response, err := utils.ResponseAsyncHandler(request)
 
 	json.Unmarshal([]byte(response[0]), &errorCallback)
 	if errorCallback.Error != float64(0) || err != nil {
 		json.Unmarshal([]byte(response[0]), &mainError)
-		return &emptyBody, nil, errors.New(mainError.Error.Message)
+		return emptyBody, orderDetailTrx, errors.New(mainError.Error.Message)
 	}
 
 	json.Unmarshal([]byte(response[0]), &orderTrx)
@@ -297,17 +299,17 @@ func (pos *Olsera) GetInvoiceCodeFromList(invoiceCode string) (*map[string]inter
 
 		request, err := utils.RequestHandler(emptyBody, orderDetailUri, http.MethodGet)
 		if err != nil {
-			return &callback, nil, err
+			return callback, orderDetailTrx, err
 		}
 
 		request.Header.Set("Content-Type", "application/json; charset=utf-8")
-		request.Header.Set("Authorization", "Bearer "+accessToken)
+		request.Header.Set("Authorization", "Bearer "+key.AccessToken)
 		response, err := utils.ResponseAsyncHandler(request)
 
 		json.Unmarshal([]byte(response[0]), &errorCallback)
 		if errorCallback.Error != float64(0) || err != nil {
 			json.Unmarshal([]byte(response[0]), &mainError)
-			return &emptyBody, nil, errors.New(mainError.Error.Message)
+			return emptyBody, orderDetailTrx, errors.New(mainError.Error.Message)
 		}
 
 		json.Unmarshal([]byte(response[0]), &orderDetailTrx)
@@ -319,7 +321,7 @@ func (pos *Olsera) GetInvoiceCodeFromList(invoiceCode string) (*map[string]inter
 	for i := 0; i < len(productItems); i++ {
 		item := &productItems[i]
 
-		_, selectedProduct, _ := pos.GetProductDetail(item.ProductId, accessToken)
+		_, selectedProduct, _ := pos.GetProductDetail(item.ProductId, key.AccessToken)
 
 		item.CategoryId = selectedProduct.Data.CategoryId
 		item.CategoryName = selectedProduct.Data.CategoryName
@@ -327,7 +329,37 @@ func (pos *Olsera) GetInvoiceCodeFromList(invoiceCode string) (*map[string]inter
 		item.ClasificationName = selectedProduct.Data.ClasificationName
 	}
 
-	return nil, &orderDetailTrx, err
+	return nil, orderDetailTrx, err
+}
+
+func (pos *Olsera) GetInvoiceCodeFromList(invoiceCode string) (map[string]interface{}, CloseOrderDetail, error) {
+	var (
+		wg           sync.WaitGroup
+		callbacks    []map[string]interface{}
+		orderDetails []CloseOrderDetail
+		errors       []error
+	)
+
+	for _, key := range pos.Keys {
+		wg.Add(1)
+
+		go func() {
+			callback, orderDetail, err := pos.getInvoiceCodeFromList(&wg, key, invoiceCode)
+			orderDetails = append(orderDetails, orderDetail)
+			callbacks = append(callbacks, callback)
+			errors = append(errors, err)
+		}()
+
+		wg.Wait()
+	}
+
+	for i, v := range orderDetails {
+		if v.Data.Id > 0 {
+			return callbacks[i], v, nil
+		}
+	}
+
+	return callbacks[0], orderDetails[0], errors[0]
 }
 
 /*

@@ -32,10 +32,10 @@
         "s3": {
             "key": "",
             "secret": "",
-            "region": "ap-southeast-1",
-            "bucket": "vereintech-assets",
-            "public_url": "https://vereintech-assets.s3.ap-southeast-1.amazonaws.com",
-            "filepath": "/dots/uploads"
+            "region": "",
+            "bucket": "",
+            "public_url": "",
+            "filepath": ""
         }
     },
     "resource_path": "/resources/templates",
@@ -46,26 +46,28 @@
         "username": "",
         "password": "",
         "ecryption": "tls",
-        "mail_from": "do-not-reply@vereintech.com",
-        "mail_name": "mail name"
+        "mail_from": "",
+        "mail_name": ""
     },
     "web_url": "",
     "new_relic": {
-        "relic_name": "Dots-Project",
+        "relic_name": "",
         "license_key": ""
     },
-    "olsera_pos": {
-        "enable_redeem_once": 1,
-        "app_id": "zDMQwrbGw2RFEoG6G0nW",
-        "secret_key": "eQ61Syb2jZbC8o8n67JVsS4NvZAmynKM"
-    },
+    "olsera_pos": [
+        {
+            "enable_redeem_once": 1,
+            "app_id": "",
+            "secret_key": ""
+        }
+    ],
     "xendit": {
-        "api_key": "xnd_development_s9Od3TL7hTUHAnju6kTu4xGBiUXIFIkDeg3NlsVHVju0iXBTkNiTn7lr0409AXzX",
+        "api_key": "",
         "available_channel":["BCA", "QRIS"],
-        "callback_token": "S94vmIKpXCUGT5fXKVdKuKIW5ssYS8y5F2Ao0qpHNzsbIc1V",
+        "callback_token": "",
         "unavailable_channel":["CREDIT_CARD"],
-        "success_url": "https://dots-api.vereintech.com/v1/success-callback",
-        "failure_url": "https://dots-api.vereintech.com/v1/failure-callback"
+        "success_url": "",
+        "failure_url": ""
     },
      "onesignal":{
         "app_id":"",
