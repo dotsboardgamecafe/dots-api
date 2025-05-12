@@ -290,7 +290,7 @@ func (pos *Olsera) getInvoiceCodeFromList(wg *sync.WaitGroup, key OlseraKey, inv
 	)
 
 	key.AccessToken, _ = pos.GenerateAccessToken(key)
-	orderUri := BASE_URL + VERSION + "/" + LANG + "/order/closeorder?search=" + invoiceCode
+	orderUri := BASE_URL + VERSION + "/" + LANG + "/order/closeorder?search_column[]=order_no&search_operator[]==&search_text[]=" + invoiceCode
 	request, err := utils.RequestHandler(emptyBody, orderUri, http.MethodGet)
 	if err != nil {
 		return callback, orderDetailTrx, err

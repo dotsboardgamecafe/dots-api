@@ -2,7 +2,7 @@ package point_of_sale
 
 import (
 	SubModule "dots-api/lib/point_of_sale/sub_modules"
-	"fmt"
+	"errors"
 	"time"
 
 	"github.com/spf13/viper"
@@ -21,7 +21,14 @@ func GetPointOfSale(pos string) (IPointOfSale, error) {
 		keys := []SubModule.OlseraKey{}
 
 		for k, v := range viper.Get("olsera_pos").(map[string]interface{}) {
-			expiresAt, _ := time.Parse(time.RFC3339, v.(map[string]interface{})["expires_at"].(string))
+			var expiresAt time.Time
+
+			if expiresAtEmpty, ok := v.(map[string]interface{})["expires_at"]; ok {
+				expiresAt, _ = time.Parse(time.RFC3339, expiresAtEmpty.(string))
+			} else {
+				expiresAt = v.(map[string]interface{})["expires_at"].(time.Time)
+			}
+
 			keys = append(keys, SubModule.OlseraKey{
 				Name:             k,
 				EnableRedeemOnce: int(v.(map[string]interface{})["enable_redeem_once"].(float64)),
@@ -37,5 +44,5 @@ func GetPointOfSale(pos string) (IPointOfSale, error) {
 		}, nil
 	}
 
-	return nil, fmt.Errorf("invalid POS type passed")
+	return nil, errors.New("invalid POS type passed")
 }
