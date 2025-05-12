@@ -22,9 +22,8 @@ func GetPointOfSale(pos string) (IPointOfSale, error) {
 
 		for k, v := range viper.Get("olsera_pos").(map[string]interface{}) {
 			var expiresAt time.Time
-
-			if expiresAtEmpty, ok := v.(map[string]interface{})["expires_at"]; ok {
-				expiresAt, _ = time.Parse(time.RFC3339, expiresAtEmpty.(string))
+			if expiresAtString, ok := v.(map[string]interface{})["expires_at"].(string); ok {
+				expiresAt, _ = time.Parse(time.RFC3339, expiresAtString)
 			} else {
 				expiresAt = v.(map[string]interface{})["expires_at"].(time.Time)
 			}

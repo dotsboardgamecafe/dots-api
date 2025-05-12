@@ -112,8 +112,10 @@ func (pos *Olsera) GenerateAccessToken(key OlseraKey) (string, error) {
 		callback BearerToken
 	)
 
-	if key.AccessToken != "" && time.Now().Before(key.ExpiresAt) {
-		return key.AccessToken, nil
+	if !key.ExpiresAt.IsZero() {
+		if key.AccessToken != "" && time.Now().Before(key.ExpiresAt) {
+			return key.AccessToken, nil
+		}
 	}
 
 	url := BASE_URL + VERSION + "/" + LANG + "/token"
