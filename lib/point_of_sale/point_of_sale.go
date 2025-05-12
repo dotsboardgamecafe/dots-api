@@ -30,7 +30,7 @@ func GetPointOfSale(pos string) (IPointOfSale, error) {
 
 			keys = append(keys, SubModule.OlseraKey{
 				Name:             k,
-				EnableRedeemOnce: int(v.(map[string]interface{})["enable_redeem_once"].(float64)),
+				EnableRedeemOnce: v.(map[string]interface{})["enable_redeem_once"].(float64),
 				AppId:            v.(map[string]interface{})["app_id"].(string),
 				SecretKey:        v.(map[string]interface{})["secret_key"].(string),
 				AccessToken:      v.(map[string]interface{})["access_token"].(string),

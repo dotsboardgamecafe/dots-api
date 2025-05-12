@@ -28,7 +28,7 @@ type (
 
 	OlseraKey struct {
 		Name             string    `json:"name"`
-		EnableRedeemOnce int       `json:"enable_redeem_once"`
+		EnableRedeemOnce float64   `json:"enable_redeem_once"`
 		AppId            string    `json:"app_id"`
 		SecretKey        string    `json:"secret_key"`
 		AccessToken      string    `json:"access_token"`
