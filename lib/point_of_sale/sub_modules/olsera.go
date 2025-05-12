@@ -27,7 +27,7 @@ type (
 	}
 
 	OlseraKey struct {
-		Name             string    `json:"name"`
+		Name             string
 		EnableRedeemOnce float64   `json:"enable_redeem_once"`
 		AppId            string    `json:"app_id"`
 		SecretKey        string    `json:"secret_key"`
@@ -143,10 +143,14 @@ func (pos *Olsera) GenerateAccessToken(key OlseraKey) (string, error) {
 	utils.ResponseHandler(request)
 
 	if callback.AccessToken != "" {
-		expiresAt := time.Now().Add(time.Duration(callback.ExpiresIn) * time.Second)
+		key.ExpiresAt = time.Now().Add(time.Duration(callback.ExpiresIn-300) * time.Second)
+		key.AccessToken = callback.AccessToken
 
-		viper.Set(fmt.Sprintf("olsera_pos.%s.access_token", key.Name), callback.AccessToken)
-		viper.Set(fmt.Sprintf("olsera_pos.%s.expires_at", key.Name), expiresAt)
+		var value map[string]interface{}
+		valueJson, _ := json.Marshal(key)
+		json.Unmarshal(valueJson, &value)
+
+		viper.Set(fmt.Sprintf("olsera_pos.%s", key.Name), value)
 		viper.WriteConfig()
 	}
 
