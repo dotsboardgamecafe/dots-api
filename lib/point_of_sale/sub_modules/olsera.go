@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/spf13/viper"
 )
@@ -26,11 +27,12 @@ type (
 	}
 
 	OlseraKey struct {
-		Name             string `json:"name"`
-		EnableRedeemOnce int    `json:"enable_redeem_once"`
-		AppId            string `json:"app_id"`
-		SecretKey        string `json:"secret_key"`
-		AccessToken      string
+		Name             string    `json:"name"`
+		EnableRedeemOnce int       `json:"enable_redeem_once"`
+		AppId            string    `json:"app_id"`
+		SecretKey        string    `json:"secret_key"`
+		AccessToken      string    `json:"access_token"`
+		ExpiresAt        time.Time `json:"expires_at"`
 	}
 
 	BearerToken struct {
@@ -109,6 +111,11 @@ func (pos *Olsera) GenerateAccessToken(key OlseraKey) (string, error) {
 
 		callback BearerToken
 	)
+
+	if key.AccessToken != "" && time.Now().Before(key.ExpiresAt) {
+		return key.AccessToken, nil
+	}
+
 	url := BASE_URL + VERSION + "/" + LANG + "/token"
 	values := map[string]interface{}{
 		"app_id":     key.AppId,
@@ -132,6 +139,14 @@ func (pos *Olsera) GenerateAccessToken(key OlseraKey) (string, error) {
 
 	json.Unmarshal([]byte(response[0]), &callback)
 	utils.ResponseHandler(request)
+
+	if callback.AccessToken != "" {
+		expiresAt := time.Now().Add(time.Duration(callback.ExpiresIn) * time.Second)
+
+		viper.Set(fmt.Sprintf("olsera_pos.%s.access_token", key.Name), callback.AccessToken)
+		viper.Set(fmt.Sprintf("olsera_pos.%s.expires_at", key.Name), expiresAt)
+		viper.WriteConfig()
+	}
 
 	return callback.AccessToken, err
 }

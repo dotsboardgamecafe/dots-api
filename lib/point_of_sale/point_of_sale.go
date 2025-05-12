@@ -3,6 +3,7 @@ package point_of_sale
 import (
 	SubModule "dots-api/lib/point_of_sale/sub_modules"
 	"fmt"
+	"time"
 
 	"github.com/spf13/viper"
 )
@@ -19,12 +20,15 @@ func GetPointOfSale(pos string) (IPointOfSale, error) {
 	if pos == "Olsera" {
 		keys := []SubModule.OlseraKey{}
 
-		for _, v := range viper.Get("olsera_pos").([]interface{}) {
+		for k, v := range viper.Get("olsera_pos").(map[string]interface{}) {
+			expiresAt, _ := time.Parse(time.RFC3339, v.(map[string]interface{})["expires_at"].(string))
 			keys = append(keys, SubModule.OlseraKey{
-				Name:             v.(map[string]interface{})["name"].(string),
+				Name:             k,
 				EnableRedeemOnce: int(v.(map[string]interface{})["enable_redeem_once"].(float64)),
 				AppId:            v.(map[string]interface{})["app_id"].(string),
 				SecretKey:        v.(map[string]interface{})["secret_key"].(string),
+				AccessToken:      v.(map[string]interface{})["access_token"].(string),
+				ExpiresAt:        expiresAt,
 			})
 		}
 
