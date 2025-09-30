@@ -190,6 +190,7 @@ var (
 	ErrCountParticipantRoomByRoomId                         = "Error counting total participant by room id"
 	ErrCountParticipantRoomByUserIdAndGameIdAndIsGameMaster = "Error counting total participant by user id and game id and have game master"
 	ErrCountParticipantRoomByStartDateAndEndDate            = "Error counting total participant by start date and end date"
+	ErrSetAtLeastOneParticipantsWhenToDecideWinners         = "Error set at least one participants when to decide winners"
 
 	// Error for module room participant
 	ErrAddingRoomParticipant            = "Error adding room participant"
@@ -354,6 +355,7 @@ var (
 	ErrUnmarshallingBadgeRule         = "error unmarshalling badge rule"
 	ErrCountingRoomParticipants       = "error counting room participants"
 	ErrCountingTournamentParticipants = "error counting tournament participants"
+	ErrCountingUserGameCollections    = "error counting game collection by user id"
 	ErrGettingBadgeID                 = "error getting badge ID by code"
 	ErrAddingUserBadge                = "error adding user badge"
 	ErrGettingTotalInvoiceAmount      = "error getting total invoice amount"

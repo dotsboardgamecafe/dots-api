@@ -59,7 +59,7 @@ func (c *Contract) GetBadgeRuleByBadgeCode(db *pgxpool.Pool, ctx context.Context
 
 	query := `SELECT br.id, br.badge_rule_code, br.badge_id, br.key_condition, br.value_type, br.value 
 	          FROM badges_rules br 
-	          LEFT JOIN badges b ON br.badge_id = b.id 
+	          LEFT JOIN badges b ON br.badge_id = b.id AND b.status = 'active'
 	          WHERE b.badge_code = $1`
 	rows, err := db.Query(ctx, query, badgeCode)
 	if err != nil {
@@ -74,13 +74,13 @@ func (c *Contract) GetBadgeRuleByBadgeCode(db *pgxpool.Pool, ctx context.Context
 			&badgeRule.KeyCondition, &badgeRule.ValueType, &badgeRule.Value,
 		)
 		if err != nil {
-			return list, c.errHandler("model.GetBadgeRuleByBadgeCode", err, utils.ErrScanningBadgeRule)
+			return list, c.errHandler("model.GetBadgeRuleByBadgeCode", err, err.Error())
 		}
 		list = append(list, badgeRule)
 	}
 
 	if rows.Err() != nil {
-		return list, c.errHandler("model.GetBadgeRuleByBadgeCode", rows.Err(), utils.ErrGettingBadgeRuleList)
+		return list, c.errHandler("model.GetBadgeRuleByBadgeCode", rows.Err(), rows.Err().Error())
 	}
 
 	return list, nil

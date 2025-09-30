@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"slices"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
@@ -748,4 +749,65 @@ func (h *Contract) ImportCsvToUpdateBadgesAct(w http.ResponseWriter, r *http.Req
 	}
 
 	h.SendSuccess(w, nil, nil)
+}
+
+func (h *Contract) DistributeBadgeToUserAct(w http.ResponseWriter, r *http.Request) {
+	var (
+		err   error
+		ctx   = context.TODO()
+		m     = model.Contract{App: h.App}
+		param = request.BadgeParam{}
+	)
+
+	// Parse URL query parameters
+	err = param.ParseBadge(r.URL.Query())
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		return
+	}
+
+	// Retrieve badge list from the badgesbase
+	badges, param, err := m.GetBadgeList(h.DB, ctx, param)
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		return
+	}
+
+	queueHost := m.Config.GetString("queue.rabbitmq.host")
+	// Populate response with badge details and rules
+	states := []map[string]interface{}{}
+	for _, v := range badges {
+		if v.Status != "active" {
+			continue
+		}
+
+		rules, err := m.GetBadgeRuleList(h.DB, ctx, v.Id)
+		if err != nil {
+			continue
+		}
+
+		isTournamentWinner := slices.IndexFunc(rules, func(rule model.BadgeRuleEnt) bool {
+			return rule.KeyCondition == utils.TournamentWinner
+		})
+
+		if isTournamentWinner != -1 {
+			continue
+		}
+
+		// Publisher badge
+		queueData := rabbit.QueueDataPayload(
+			rabbit.QueueBadges,
+			rabbit.QueueBadgeReq(
+				v.BadgeCode,
+			),
+		)
+		err = rabbit.PublishQueue(ctx, queueHost, queueData)
+		if err != nil {
+			log.Printf("Error : %s", err)
+			continue
+		}
+		states = append(states, map[string]interface{}{"badge_code": v.BadgeCode, "status": "sent"})
+	}
+
+	h.SendSuccess(w, map[string]interface{}{"message": "success", "data": states}, param)
 }

@@ -221,7 +221,7 @@ func (c *Contract) GetBadgeListByKeyCondition(db *pgxpool.Pool, ctx context.Cont
 	SELECT 
 		b.badge_code 
 	FROM badges_rules br 
-	LEFT JOIN badges b ON b.id = br.badge_id AND b.badge_category != $2
+	JOIN badges b ON b.id = br.badge_id AND b.status = 'active' AND b.badge_category != $2
 	WHERE br.key_condition = $1`
 	rows, err := db.Query(ctx, query, keyCondition, utils.BadgeCategoryGift.String())
 	if err != nil {
@@ -230,14 +230,12 @@ func (c *Contract) GetBadgeListByKeyCondition(db *pgxpool.Pool, ctx context.Cont
 	defer rows.Close()
 
 	for rows.Next() {
-		var ent string
-		err = rows.Scan(
-			&ent,
-		)
+		var code string
+		err = rows.Scan(&code)
 		if err != nil {
 			return list, c.errHandler("model.GetBadgeListByKeyCondition", err, utils.ErrScanningBadgeRule)
 		}
-		list = append(list, ent)
+		list = append(list, code)
 	}
 
 	return list, nil

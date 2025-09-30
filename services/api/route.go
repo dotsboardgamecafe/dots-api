@@ -191,6 +191,7 @@ func AppSubsRoute(r chi.Router, app *bootstrap.App) {
 	r.Route("/badges", func(r chi.Router) {
 		r.Use(app.VerifyJwtToken)
 		r.With(app.VerifyAccessRoute).Get("/", nrWrap(h.GetBadgeListAct, app.NewRelic))
+		r.With(app.VerifyAccessRoute).Get("/distribute", nrWrap(h.DistributeBadgeToUserAct, app.NewRelic))
 		r.With(app.VerifyAccessRoute).Post("/import", nrWrap(h.ImportCsvToUpdateBadgesAct, app.NewRelic))
 		r.With(app.VerifyAccessRoute).Get("/unowned/{user_code}", nrWrap(h.GetUnownedBadgeUserListAct, app.NewRelic))
 		r.With(app.VerifyAccessRoute).Post("/{code}/gift", nrWrap(h.GiftBadgeToUserAct, app.NewRelic))

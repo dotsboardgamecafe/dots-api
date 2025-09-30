@@ -812,6 +812,45 @@ func (h *Contract) SetWinnerTournamentAct(w http.ResponseWriter, r *http.Request
 	for _, id := range participantIds {
 		if err := m.AddUserGameCollections(h.DB, ctx, id, tournamentData.GameId); err == nil {
 			m.AddUserPoint(tx, ctx, id, utils.UserPointType["GAME_COLLECTION"], tournamentData.GameCode, utils.FirstTimePlayed.Int())
+
+			queueHost := m.Config.GetString("queue.rabbitmq.host")
+			queueData := rabbit.QueueDataPayload(
+				rabbit.QueueUserBadge,
+				rabbit.QueueUserBadgeReq(
+					utils.PlayingGames,
+					id,
+				),
+			)
+			err = rabbit.PublishQueue(ctx, queueHost, queueData)
+			if err != nil {
+				log.Printf("Error : %s", err)
+			}
+
+			// Publisher badge
+			queueData = rabbit.QueueDataPayload(
+				rabbit.QueueUserBadge,
+				rabbit.QueueUserBadgeReq(
+					utils.TimeLimit,
+					id,
+				),
+			)
+			err = rabbit.PublishQueue(ctx, queueHost, queueData)
+			if err != nil {
+				log.Printf("Error : %s", err)
+			}
+
+			// Publisher badge
+			queueData = rabbit.QueueDataPayload(
+				rabbit.QueueUserBadge,
+				rabbit.QueueUserBadgeReq(
+					utils.PlayingGames,
+					id,
+				),
+			)
+			err = rabbit.PublishQueue(ctx, queueHost, queueData)
+			if err != nil {
+				log.Printf("Error : %s", err)
+			}
 		}
 	}
 

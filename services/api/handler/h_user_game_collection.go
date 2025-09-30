@@ -108,6 +108,8 @@ func (h *Contract) AddUserGameCollectionAct(w http.ResponseWriter, r *http.Reque
 	}
 
 	go func(ctx context.Context, userID int64) {
+		queueHost := m.Config.GetString("queue.rabbitmq.host")
+
 		// Publisher badge
 		queueData := rabbit.QueueDataPayload(
 			rabbit.QueueUserBadge,
@@ -116,7 +118,19 @@ func (h *Contract) AddUserGameCollectionAct(w http.ResponseWriter, r *http.Reque
 				userID,
 			),
 		)
-		queueHost := m.Config.GetString("queue.rabbitmq.host")
+		err = rabbit.PublishQueue(ctx, queueHost, queueData)
+		if err != nil {
+			log.Printf("Error : %s", err)
+		}
+
+		// Publisher badge
+		queueData = rabbit.QueueDataPayload(
+			rabbit.QueueUserBadge,
+			rabbit.QueueUserBadgeReq(
+				utils.TimeLimit,
+				userID,
+			),
+		)
 		err = rabbit.PublishQueue(ctx, queueHost, queueData)
 		if err != nil {
 			log.Printf("Error : %s", err)

@@ -728,9 +728,24 @@ func (h *Contract) SetWinnerRoomAct(w http.ResponseWriter, r *http.Request) {
 		exists := m.AddUserGameCollections(h.DB, ctx, int64(userId), room.GameId)
 		if exists == nil {
 			m.AddUserPoint(tx, ctx, int64(userId), utils.UserPointType["GAME_COLLECTION"], room.GameCode, utils.FirstTimePlayed.Int())
+
+			queueData := rabbit.QueueDataPayload(
+				rabbit.QueueUserBadge,
+				rabbit.QueueUserBadgeReq(
+					utils.PlayingGames,
+					int64(userId),
+				),
+			)
+			queueHost := m.Config.GetString("queue.rabbitmq.host")
+			err = rabbit.PublishQueue(ctx, queueHost, queueData)
+			if err != nil {
+				log.Printf("Error : %s", err)
+			}
 		}
 
 		go func(ctx context.Context, userID int64) {
+			queueHost := m.Config.GetString("queue.rabbitmq.host")
+
 			// Publisher badge
 			queueData := rabbit.QueueDataPayload(
 				rabbit.QueueUserBadge,
@@ -739,7 +754,32 @@ func (h *Contract) SetWinnerRoomAct(w http.ResponseWriter, r *http.Request) {
 					int64(userID),
 				),
 			)
-			queueHost := m.Config.GetString("queue.rabbitmq.host")
+			err = rabbit.PublishQueue(ctx, queueHost, queueData)
+			if err != nil {
+				log.Printf("Error : %s", err)
+			}
+
+			// Publisher badge
+			queueData = rabbit.QueueDataPayload(
+				rabbit.QueueUserBadge,
+				rabbit.QueueUserBadgeReq(
+					utils.TimeLimit,
+					int64(userID),
+				),
+			)
+			err = rabbit.PublishQueue(ctx, queueHost, queueData)
+			if err != nil {
+				log.Printf("Error : %s", err)
+			}
+
+			// Publisher badge
+			queueData = rabbit.QueueDataPayload(
+				rabbit.QueueUserBadge,
+				rabbit.QueueUserBadgeReq(
+					utils.PlayingGames,
+					int64(userID),
+				),
+			)
 			err = rabbit.PublishQueue(ctx, queueHost, queueData)
 			if err != nil {
 				log.Printf("Error : %s", err)

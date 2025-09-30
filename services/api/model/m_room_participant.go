@@ -48,6 +48,7 @@ func (c *Contract) GetAllParticipantByRoomCode(db *pgxpool.Pool, ctx context.Con
 		err   error
 		list  []RoomParticipantResp
 		query = `SELECT 
+			u.id AS user_id,
 			u.user_code AS user_code,
 			COALESCE(u.username, '') AS user_name,
 			u.image_url AS user_image_url,
@@ -58,6 +59,7 @@ func (c *Contract) GetAllParticipantByRoomCode(db *pgxpool.Pool, ctx context.Con
 			rp.position,
 			rp.additional_info,
 			rp.reward_point,
+			rp.transaction_code,
 			tr.name as latest_tier_name 
 			FROM rooms r
 				JOIN rooms_participants rp ON rp.room_id = r.id
@@ -75,10 +77,11 @@ func (c *Contract) GetAllParticipantByRoomCode(db *pgxpool.Pool, ctx context.Con
 	for rows.Next() {
 		var data RoomParticipantResp
 		err = rows.Scan(
+			&data.UserId,
 			&data.UserCode, &data.UserName, &data.UserImgUrl, &data.UserStyle, &data.UserXPlayer,
 			&data.StatusWinner, &data.Status,
 			&data.Position, &data.AdditionalInfo, &data.RewardPoint,
-			&data.LatestTier,
+			&data.TransactionCode, &data.LatestTier,
 		)
 		if err != nil {
 			return list, c.errHandler("model.GetAllParticipantByRoomCode", err, utils.ErrScanningAllParticipantByRoomCode)

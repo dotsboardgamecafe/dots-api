@@ -50,6 +50,7 @@ func (c *Contract) GetAllParticipantByTournamentCode(db *pgxpool.Pool, ctx conte
 		query = `SELECT 
 			tp.id,
 			tp.tournament_id,
+			tp.user_id,
 			u.user_code,
 			COALESCE(u.username, '') AS user_name,
 			u.image_url AS user_image_url,
@@ -60,6 +61,7 @@ func (c *Contract) GetAllParticipantByTournamentCode(db *pgxpool.Pool, ctx conte
 			tp.position,
 			tp.additional_info,
 			tp.reward_point, 
+			tp.transaction_code,
 			tr.name as latest_tier_name 
 			FROM tournament_participants tp
 				LEFT JOIN tournaments t ON tp.tournament_id = t.id
@@ -77,10 +79,10 @@ func (c *Contract) GetAllParticipantByTournamentCode(db *pgxpool.Pool, ctx conte
 	for rows.Next() {
 		var data TournamentParticipantRespEnt
 		err = rows.Scan(
-			&data.Id, &data.TournamentId, &data.UserCode,
+			&data.Id, &data.TournamentId, &data.UserId, &data.UserCode,
 			&data.UserName, &data.UserImgUrl, &data.UserStyle, &data.UserXPlayer,
 			&data.StatusWinner, &data.Status, &data.Position,
-			&data.AdditionalInfo, &data.RewardPoint, &data.LatestTier,
+			&data.AdditionalInfo, &data.RewardPoint, &data.TransactionCode, &data.LatestTier,
 		)
 		if err != nil {
 			if err == pgx.ErrNoRows {

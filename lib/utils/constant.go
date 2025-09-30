@@ -103,6 +103,7 @@ var (
 	LifeTime                  = "life_time"
 	SpesificBoardGameCategory = "spesific_board_game_category"
 	TournamentWon             = "tournament_won"
+	TournamentWinner          = "tournament_winner"
 	PlayingGames              = "playing_games"
 	Quantity                  = "quantity"
 	Tournament                = "tournament"

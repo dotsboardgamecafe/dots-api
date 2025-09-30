@@ -194,21 +194,19 @@ func (h *Contract) TransactionCallback(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Printf("Error : %s", err)
 		}
-	}
 
-	// Publisher badge
-	queueData := rabbit.QueueDataPayload(
-		rabbit.QueueUserBadge,
-		rabbit.QueueUserBadgeReq(
-			utils.SpesificBoardGameCategory,
-			trx.UserId,
-		),
-	)
-
-	queueHost := m.Config.GetString("queue.rabbitmq.host")
-	err = rabbit.PublishQueue(ctx, queueHost, queueData)
-	if err != nil {
-		log.Printf("Error : %s", err)
+		// Publisher badge
+		queueData = rabbit.QueueDataPayload(
+			rabbit.QueueUserBadge,
+			rabbit.QueueUserBadgeReq(
+				utils.SpesificBoardGameCategory,
+				trx.UserId,
+			),
+		)
+		err = rabbit.PublishQueue(ctx, queueHost, queueData)
+		if err != nil {
+			log.Printf("Error : %s", err)
+		}
 	}
 
 	// Notification Handler

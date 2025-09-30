@@ -73,11 +73,7 @@ func (h *Contract) CheckUserBadge(ctx context.Context, badgeType string, userId 
 					totalGamesPlayed += roomGameCount + tournamentGameCount
 				}
 
-				if totalGamesPlayed >= specificBoardGameCategory.TotalPlayed {
-					badgeRules = append(badgeRules, true)
-				} else {
-					badgeRules = append(badgeRules, false)
-				}
+				badgeRules = append(badgeRules, totalGamesPlayed >= specificBoardGameCategory.TotalPlayed)
 				// check if condition is time limit
 			} else if badgeRule.KeyCondition == utils.TimeLimit {
 				var timeLimitCategory TimeLimitCategory
@@ -102,12 +98,14 @@ func (h *Contract) CheckUserBadge(ctx context.Context, badgeType string, userId 
 						return h.errHandler("model.CheckBadge", err, utils.ErrCountingTournamentParticipants)
 					}
 
-					if roomCount > 1 && tournamentCount > 1 {
-						badgeRules = append(badgeRules, true)
-					} else {
-						badgeRules = append(badgeRules, false)
+					totalGamesPlayed, err := m.CountUserGameCollectionsByUserID(h.DB, ctx, userId, timeLimitCategory.StartDate, timeLimitCategory.EndDate)
+					if err != nil {
+						return h.errHandler("model.CheckBadge", err, utils.ErrCountingUserGameCollections)
 					}
 
+					totalPlayed := roomCount + tournamentCount + int64(totalGamesPlayed)
+
+					badgeRules = append(badgeRules, totalPlayed >= 1)
 					// check if type life time
 				} else if timeLimitCategory.Category == utils.LifeTime {
 					roomCount, err := m.CountRoomParticipantByUserIdAndStartDateAndLifeTime(h.DB, ctx, userId, timeLimitCategory.StartDate, timeLimitCategory.EndDate)
@@ -119,11 +117,14 @@ func (h *Contract) CheckUserBadge(ctx context.Context, badgeType string, userId 
 						return h.errHandler("model.CheckBadge", err, utils.ErrCountingTournamentParticipants)
 					}
 
-					if roomCount > 1 && tournamentCount > 1 {
-						badgeRules = append(badgeRules, true)
-					} else {
-						badgeRules = append(badgeRules, false)
+					totalGamesPlayed, err := m.CountUserGameCollectionsByUserID(h.DB, ctx, userId, timeLimitCategory.StartDate, timeLimitCategory.EndDate)
+					if err != nil {
+						return h.errHandler("model.CheckBadge", err, utils.ErrCountingUserGameCollections)
 					}
+
+					totalPlayed := roomCount + tournamentCount + int64(totalGamesPlayed)
+
+					badgeRules = append(badgeRules, totalPlayed >= 1)
 				}
 
 				// check if condition is total spend
@@ -150,34 +151,8 @@ func (h *Contract) CheckUserBadge(ctx context.Context, badgeType string, userId 
 				}
 
 				totalSpentAmount := totalBookingAmount + totalClaimedInvoiceAmount
-				if requiredSpendAmount <= totalSpentAmount {
-					badgeRules = append(badgeRules, true)
-				} else {
-					badgeRules = append(badgeRules, false)
-				}
-			} else if badgeRule.KeyCondition == utils.TournamentWon {
-				var requiredTournamentWon int
-				valueJSON, err := json.Marshal(badgeRule.Value)
-				if err != nil {
-					return h.errHandler("model.CheckBadge", err, utils.ErrUnmarshallingBadgeRule)
-				}
 
-				err = json.Unmarshal(valueJSON, &requiredTournamentWon)
-				if err != nil {
-					return h.errHandler("model.CheckBadge", err, utils.ErrUnmarshallingBadgeRule)
-				}
-
-				totalTournamenWon, err := m.CountTournamentWinnerByUserId(h.DB, ctx, userId)
-				if err != nil {
-					return h.errHandler("model.CheckBadge", err, utils.ErrGettingTotalInvoiceAmount)
-				}
-
-				if requiredTournamentWon <= totalTournamenWon {
-					badgeRules = append(badgeRules, true)
-				} else {
-					badgeRules = append(badgeRules, false)
-				}
-
+				badgeRules = append(badgeRules, requiredSpendAmount <= totalSpentAmount)
 			} else if badgeRule.KeyCondition == utils.PlayingGames {
 				var requiredDifferentGames int
 				valueJSON, err := json.Marshal(badgeRule.Value)
@@ -189,17 +164,13 @@ func (h *Contract) CheckUserBadge(ctx context.Context, badgeType string, userId 
 				if err != nil {
 					return h.errHandler("model.CheckBadge", err, utils.ErrUnmarshallingBadgeRule)
 				}
+				totalGames, err := m.CountUserGameCollectionsByUserID(h.DB, ctx, userId, "", "")
 
-				totalGames, err := m.CountUserGameCollectionsByUserID(h.DB, ctx, userId)
 				if err != nil {
-					return h.errHandler("model.CheckBadge", err, utils.ErrCountingUserGameCollection)
+					return h.errHandler("model.CheckBadge", err, utils.ErrGettingTotalInvoiceAmount)
 				}
 
-				if requiredDifferentGames <= totalGames {
-					badgeRules = append(badgeRules, true)
-				} else {
-					badgeRules = append(badgeRules, false)
-				}
+				badgeRules = append(badgeRules, totalGames >= requiredDifferentGames)
 			}
 		}
 
@@ -215,5 +186,6 @@ func (h *Contract) CheckUserBadge(ctx context.Context, badgeType string, userId 
 			}
 		}
 	}
+
 	return nil
 }

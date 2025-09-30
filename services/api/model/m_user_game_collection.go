@@ -92,13 +92,23 @@ func (c *Contract) GetUserGameCollections(db *pgxpool.Pool, ctx context.Context,
 	return list, param, nil
 }
 
-func (c *Contract) CountUserGameCollectionsByUserID(db *pgxpool.Pool, ctx context.Context, userId int64) (int, error) {
+func (c *Contract) CountUserGameCollectionsByUserID(db *pgxpool.Pool, ctx context.Context, userId int64, startDate string, endDate string) (int, error) {
 	var (
 		err   error
 		count int
+
+		args []interface{}
 	)
 
-	err = db.QueryRow(ctx, `SELECT COUNT(*) FROM users_game_collections WHERE user_id = $1`, userId).Scan(&count)
+	q := `SELECT COUNT(*) FROM users_game_collections WHERE user_id = $1`
+	args = append(args, userId)
+	if startDate != "" && endDate != "" {
+		q += ` AND created_date BETWEEN $2 AND $3`
+		args = append(args, startDate, endDate)
+	}
+
+	err = db.QueryRow(ctx, q, args...).Scan(&count)
+
 	if err != nil {
 		return 0, c.errHandler("model.CountUserGameCollectionsByUserID", err, utils.ErrCountingUserGameCollection)
 	}
