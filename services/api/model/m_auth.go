@@ -404,7 +404,7 @@ func (c *Contract) RequestForgotPassword(db *pgxpool.Pool, ctx context.Context, 
 		linkNewPass = c.Config.GetString("web_url") + utils.ResetPassRoute + token + utils.TypeRoute + utils.ForgotPassword
 
 		// Determine expired at
-		expAt = time.Now().UTC().Add(time.Minute * 5)
+		expAt = time.Now().UTC().AddDate(0, 0, 1)
 
 		// Import contract send email
 		mailContract = mail.New(c.App)
@@ -438,7 +438,7 @@ func (c *Contract) RequestVerifyEmailUser(db *pgxpool.Pool, ctx context.Context,
 		token, _ = utils.Generate(`[a-zA-Z0-9]{50}`)
 
 		// Determine expired at
-		expAt = time.Now().UTC().Add(time.Minute * 5)
+		expAt = time.Now().UTC().AddDate(0, 0, 1)
 
 		// Import contract send email
 		mailContract = mail.New(c.App)
