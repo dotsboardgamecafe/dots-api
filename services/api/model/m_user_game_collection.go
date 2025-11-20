@@ -92,6 +92,26 @@ func (c *Contract) GetUserGameCollections(db *pgxpool.Pool, ctx context.Context,
 	return list, param, nil
 }
 
+func (c *Contract) CheckUserGameCollectionsByUserID(db *pgxpool.Pool, ctx context.Context, userId int64, gameId int64) (bool, error) {
+	var (
+		err   error
+		exist bool
+
+		args []interface{}
+	)
+
+	q := `SELECT EXISTS (SELECT 1 FROM users_game_collections WHERE user_id = $1 AND game_id = $2)`
+	args = append(args, userId)
+	args = append(args, gameId)
+
+	err = db.QueryRow(ctx, q, args...).Scan(&exist)
+	if err != nil {
+		return false, c.errHandler("model.CheckUserGameCollectionsByUserID", err, utils.ErrCheckingUserGameCollection)
+	}
+
+	return exist, nil
+}
+
 func (c *Contract) CountUserGameCollectionsByUserID(db *pgxpool.Pool, ctx context.Context, userId int64, startDate string, endDate string) (int, error) {
 	var (
 		err   error

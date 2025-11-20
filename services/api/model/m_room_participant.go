@@ -191,7 +191,7 @@ func (c *Contract) CountRoomParticipantByUserIdAndGameIdAndIsGameMasterAndBookin
 		WHERE u.id = $1 AND rp.status = 'active' AND r.game_id = $2 AND r.booking_price >= $3 
 	`
 	if isGameMaster {
-		query += " AND r.game_master_id IS NOT NULL"
+		// query += " AND r.game_master_id IS NOT NULL"
 	}
 
 	err := db.QueryRow(ctx, query, userId, gameId, bookingPrice).Scan(&count)
