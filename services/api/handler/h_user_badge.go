@@ -129,6 +129,18 @@ func (h *Contract) UpdateUserBadgeByBadgeCodeAct(w http.ResponseWriter, r *http.
 		return
 	}
 
+	userBadge, err := m.GetUserBadgeByBadgeCode(h.DB, ctx, code, badgeCode)
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		return
+	}
+
+	if userBadge.IsClaim.Bool {
+		h.SendBadRequest(w, "Badge already claimed")
+		tx.Rollback(ctx)
+		return
+	}
+
 	err = m.UpdateUserBadge(tx, ctx, int64(userId), badges.Id, req.IsClaim)
 	if err != nil {
 		h.SendBadRequest(w, err.Error())
