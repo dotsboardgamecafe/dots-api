@@ -41,7 +41,7 @@ func (h *Contract) CheckBadges(ctx context.Context, badgeCode string) error {
 
 				isGameMaster := specificBoardGameCategory.NeedGM
 
-				var totalGamesPlayed int64
+				var qualified []bool
 				for _, gameCode := range specificBoardGameCategory.GameCode {
 
 					gameId, err := m.GetGameIdByCode(h.DB, ctx, gameCode)
@@ -49,20 +49,25 @@ func (h *Contract) CheckBadges(ctx context.Context, badgeCode string) error {
 						return h.errHandler("model.CheckBadge", err, utils.ErrGettingGameByCode)
 					}
 
-					roomGameCount, err := m.CountRoomParticipantByUserIdAndGameIdAndIsGameMasterAndBookingPrice(h.DB, ctx, userId, gameId, specificBoardGameCategory.BookingPrice, isGameMaster)
+					roomGameCount, err := m.CountRoomParticipantByUserIdAndGameIdAndIsGameMasterAndBookingPrice(h.DB, ctx, userId, gameId, 0, isGameMaster)
 					if err != nil {
 						return h.errHandler("model.CheckBadge", err, utils.ErrCountingRoomParticipants)
 					}
 
-					tournamentGameCount, err := m.CountTournamentParticipantByUserIdAndGameIdAndIsGameMasterAndBookingPrice(h.DB, ctx, userId, gameId, specificBoardGameCategory.BookingPrice)
+					tournamentGameCount, err := m.CountTournamentParticipantByUserIdAndGameIdAndIsGameMasterAndBookingPrice(h.DB, ctx, userId, gameId, 0)
 					if err != nil {
 						return h.errHandler("model.CheckBadge", err, utils.ErrCountingTournamentParticipants)
 					}
 
-					totalGamesPlayed += roomGameCount + tournamentGameCount
+					hasCollection, err := m.CheckUserGameCollectionsByUserID(h.DB, ctx, userId, gameId)
+					if err != nil {
+						return h.errHandler("model.CheckBadge", err, utils.ErrCheckingUserGameCollection)
+					}
+
+					qualified = append(qualified, roomGameCount > 0 || tournamentGameCount > 0 || hasCollection)
 				}
 
-				badgeRules = append(badgeRules, totalGamesPlayed >= specificBoardGameCategory.TotalPlayed)
+				badgeRules = append(badgeRules, utils.ContainsFalse(qualified))
 				// check if condition is time limit
 			} else if badgeRule.KeyCondition == utils.TimeLimit {
 				var timeLimitCategory TimeLimitCategory
@@ -182,7 +187,6 @@ func (h *Contract) CheckBadges(ctx context.Context, badgeCode string) error {
 			}
 		}
 
-		// if len(badgeRules) > 0 {
 		if utils.ContainsFalse(badgeRules) {
 			badgeId, err := m.GetBadgeIdByCode(h.DB, ctx, badgeCode)
 			if err != nil {
@@ -193,7 +197,6 @@ func (h *Contract) CheckBadges(ctx context.Context, badgeCode string) error {
 				return h.errHandler("model.CheckBadge", err, utils.ErrAddingUserBadge)
 			}
 		}
-		// }
 	}
 
 	return nil
