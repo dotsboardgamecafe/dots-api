@@ -28,6 +28,16 @@ type UserPointEnt struct {
 	CreatedDate      time.Time `db:"created_date"`
 }
 
+type UserPointHistory struct {
+	SourceId       int64     `db:"source_id"`
+	SourceUserCode string    `db:"source_user_code"`
+	SourceType     string    `db:"source_type"`
+	SourceCode     string    `db:"source_code"`
+	SourceName     string    `db:"source_name"`
+	Point          int       `db:"point"`
+	CreatedDate    time.Time `db:"created_date"`
+}
+
 func (c *Contract) AddUserPoint(tx pgx.Tx, ctx context.Context, userId int64, dataSource string, sourceCode string, point int) error {
 	sql := `INSERT INTO users_points(
 		user_id,
