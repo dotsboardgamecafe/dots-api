@@ -57,6 +57,8 @@ func AppSubsRoute(r chi.Router, app *bootstrap.App) {
 
 		// User's Point Activities
 		r.With(app.VerifyAccessRoute).Get("/{code}/point-activity", nrWrap(h.GetUserPointActivities, app.NewRelic))
+		r.With(app.VerifyAccessRoute).Get("/{code}/point-history", nrWrap(h.GetUserPointHistories, app.NewRelic))
+		r.With(app.VerifyAccessRoute).Patch("/{code}/point-adjustment", nrWrap(h.AdjustUserPointAct, app.NewRelic))
 
 		// User's Transactions
 		r.With(app.VerifyAccessRoute).Get("/{code}/transactions", nrWrap(h.GetUserTransactions, app.NewRelic))

@@ -149,6 +149,8 @@ var (
 		"GAME_COLLECTION": "game",
 		"TIER":            "tier",
 		"PROFILE":         "profile",
+		"POINT_ADD":       "point_add",
+		"POINT_SUB":       "point_subtract",
 	}
 
 	// UserPointTypeText

@@ -220,6 +220,9 @@ var (
 	ErrAddUserPoint                 = "Error adding user point"
 	ErrGetCurrentUserTotalPoint     = "Error counting user point"
 	ErrRemovingUserPoint            = "Error removing user point"
+	ErrGetUsersPointHistories       = "Error getting user point histories"
+	ErrScanUsersPointHistories      = "Error scanning user point histories"
+	ErrCountingListUserPointHistory = "Error counting list user point history"
 
 	// Error for module reward
 	ErrGettingListReward   = "Error getting list reward"
