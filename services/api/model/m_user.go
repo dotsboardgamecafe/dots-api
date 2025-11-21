@@ -671,77 +671,104 @@ func (c *Contract) GetUserPointActivities(db *pgxpool.Pool, ctx context.Context,
 		err  error
 		list []UserPointEnt
 
-		query = `SELECT
-    		u.id,
-				COALESCE(u.username, '') AS username,
-				COALESCE(u.styles, '{}') AS user_style,
-				COALESCE(CASE
-					-- Room type (normal and special_event)
-					WHEN (up.data_source = 'room' OR up.data_source = 'room_play') THEN (
-						SELECT CONCAT('Joined: ', rooms."name") AS info
-						FROM rooms
-						WHERE room_code = up.source_code
-					)
-					-- Room Paid
-					WHEN (up.data_source = 'room_paid') THEN (
-						SELECT CONCAT('Paid: ', r."name") AS info
-						FROM users_transactions as ut
-						JOIN rooms as r ON r.room_code = ut.source_code
-						WHERE 
-							ut.user_id = up.user_id
-							AND ut.transaction_code = up.source_code
-					)
-					-- Tournament Type
-					WHEN (up.data_source = 'tournament' OR up.data_source = 'tournament_play') THEN (
-						SELECT CONCAT('Joined: ', tournaments."name") AS info
-						FROM tournaments
-						WHERE tournament_code = up.source_code
-					)
-					-- Tournament Paid
-					WHEN (up.data_source = 'tournament_paid') THEN (
-						SELECT CONCAT('Paid: ', r."name") AS info
-						FROM users_transactions as ut
-						JOIN tournaments as r ON r.tournament_code = ut.source_code
-						WHERE 
-							ut.user_id = up.user_id
-							AND ut.transaction_code = up.source_code
-					)
-					-- Tournament Participant
-					WHEN (up.data_source = 'tournament_play') THEN (
-						SELECT CONCAT('Participated: ', tournaments."name") AS info
-						FROM tournaments
-						WHERE tournament_code = up.source_code
-					)
-					-- Redeem Invoice
-					WHEN (up.data_source = 'redeem') THEN (
-						SELECT CONCAT('Purchased: ', description) AS info
-						FROM user_redeem_histories
-						WHERE custom_id = up.source_code
-					)
-					-- Badges
-					WHEN (up.data_source = 'badge') THEN (
-						SELECT CONCAT('Claimed: ', badges."name") AS info
-						FROM badges
-						WHERE badge_code = up.source_code
-					)
-					-- Game Collections
-					WHEN (up.data_source = 'game') THEN (
-						SELECT CONCAT('Collected: ', games."name") AS info
-						FROM games
-						WHERE game_code = up.source_code
-					)
-					-- Profile
-					WHEN (up.data_source = 'profile') THEN (
-						SELECT CONCAT('Profile: Updated Profile Image for the first time') AS info
-					)
-				END, '') AS title_description,
+		query = `
+			SELECT
+				id,
+				username,
+				user_style,
+				title_description,
 				data_source, 
 				source_code,
 				point, 
+				created_date
+			FROM (
+			SELECT
+				u.id,
+				u.username,
+				COALESCE(u.styles, '{}') AS user_style,
+				CASE
+				WHEN up.data_source IN ('room','room_play')
+					THEN 'Joined: ' || r.name
+				WHEN up.data_source = 'room_paid'
+					THEN 'Paid: ' || rr.name
+				WHEN up.data_source = 'tournament'
+					THEN 'Joined: ' || t.name
+				WHEN up.data_source = 'tournament_play'
+					THEN 'Participated: ' || t.name
+				WHEN up.data_source = 'tournament_paid'
+					THEN 'Paid: ' || tt.name
+				WHEN up.data_source = 'redeem'
+					THEN 'Purchased: ' || urh.description
+				WHEN up.data_source = 'badge'
+					THEN 'Claimed: ' || b.name
+				WHEN up.data_source = 'game'
+					THEN 'Collected: ' || g.name
+				WHEN up.data_source = 'profile'
+					THEN 'Profile: Updated Profile Image for the first time'
+				END AS title_description,
+				up.data_source, 
+				up.source_code,
+				up.point, 
 				up.created_date
-    	FROM users_points up JOIN users u ON up.user_id = u.id
-    	WHERE u.user_code = $1 AND up.data_source != 'tier'
-			ORDER BY up.id DESC
+			FROM users_points up
+			JOIN users u
+				ON u.id = up.user_id
+
+			-- rooms (room, room_play)
+			LEFT JOIN rooms r
+					ON up.data_source IN ('room','room_play')
+					AND r.room_code = up.source_code
+
+			-- room_paid -> users_transactions -> rooms
+			LEFT JOIN users_transactions ut_room_paid
+					ON up.data_source = 'room_paid'
+					AND ut_room_paid.user_id = up.user_id
+					AND ut_room_paid.transaction_code = up.source_code
+			LEFT JOIN rooms rr
+					ON rr.room_code = ut_room_paid.source_code
+
+			-- tournament / tournament_play
+			LEFT JOIN tournaments t
+					ON up.data_source IN ('tournament','tournament_play')
+					AND t.tournament_code = up.source_code
+
+			-- tournament_paid -> users_transactions -> tournaments
+			LEFT JOIN users_transactions ut_tour_paid
+					ON up.data_source = 'tournament_paid'
+					AND ut_tour_paid.user_id = up.user_id
+					AND ut_tour_paid.transaction_code = up.source_code
+			LEFT JOIN tournaments tt
+					ON tt.tournament_code = ut_tour_paid.source_code
+
+			-- redeem
+			LEFT JOIN user_redeem_histories urh
+					ON up.data_source = 'redeem'
+					AND urh.custom_id = up.source_code
+
+			-- badge
+			LEFT JOIN badges b
+					ON up.data_source = 'badge'
+					AND b.badge_code = up.source_code
+
+			-- game
+			LEFT JOIN games g
+					ON up.data_source = 'game'
+					AND g.game_code = up.source_code
+
+			WHERE u.user_code = $1
+				AND up.data_source IN (
+				'room','room_play',
+				'room_paid',
+				'tournament','tournament_play',
+				'tournament_paid',
+				'redeem',
+				'badge',
+				'game',
+				'profile'
+				)
+			) AS t
+			WHERE t.title_description IS NOT NULL
+			ORDER BY t.created_date DESC
 			LIMIT 5;`
 	)
 
@@ -770,6 +797,192 @@ func (c *Contract) GetUserPointActivities(db *pgxpool.Pool, ctx context.Context,
 	}
 
 	return list, nil
+}
+
+func (c *Contract) GetUserPointHistories(db *pgxpool.Pool, ctx context.Context, UserCode string, param request.UserPointHistoryParam) ([]UserPointHistory, request.UserPointHistoryParam, error) {
+	var (
+		err  error
+		list []UserPointHistory
+
+		query = `
+			SELECT
+				t.source_id,
+				t.source_user_code,
+				t.source_type,
+				t.source_code,
+				t.source_name,
+				t.point,
+				t.created_date
+			FROM (
+			SELECT
+				up.id AS source_id,
+				u.user_code as source_user_code,
+				up.data_source AS source_type,
+				up.source_code,
+				CASE
+				WHEN up.data_source IN ('room','room_play')
+					THEN 'Joined: ' || r.name
+				WHEN up.data_source = 'room_paid'
+					THEN 'Paid: ' || rr.name
+				WHEN up.data_source = 'tournament'
+					THEN 'Joined: ' || t.name
+				WHEN up.data_source = 'tournament_play'
+					THEN 'Participated: ' || t.name
+				WHEN up.data_source = 'tournament_paid'
+					THEN 'Paid: ' || tt.name
+				WHEN up.data_source = 'redeem'
+					THEN 'Purchased: ' || urh.description
+				WHEN up.data_source = 'badge'
+					THEN 'Claimed: ' || b.name
+				WHEN up.data_source = 'game'
+					THEN 'Collected: ' || g.name
+				WHEN up.data_source = 'profile'
+					THEN 'Profile: Updated Profile Image for the first time'
+				WHEN up.data_source = 'point_subtract'
+					THEN 'Point: Your point was decreased by ' || SUBSTR(up.point::text, 2)
+				WHEN up.data_source = 'point_add'
+					THEN 'Point: Your point was increased by ' || up.point
+				WHEN up.data_source = 'tier'
+					THEN 'Tier: You have reached tier ' || tiers.name
+				END AS source_name,
+				up.point,
+				up.created_date
+			FROM users_points up
+			JOIN users u
+				ON u.id = up.user_id
+
+			-- rooms (room, room_play)
+			LEFT JOIN rooms r
+					ON up.data_source IN ('room','room_play')
+					AND r.room_code = up.source_code
+
+			-- room_paid -> users_transactions -> rooms
+			LEFT JOIN users_transactions ut_room_paid
+					ON up.data_source = 'room_paid'
+					AND ut_room_paid.user_id = up.user_id
+					AND ut_room_paid.transaction_code = up.source_code
+			LEFT JOIN rooms rr
+					ON rr.room_code = ut_room_paid.source_code
+
+			-- tournament / tournament_play
+			LEFT JOIN tournaments t
+					ON up.data_source IN ('tournament','tournament_play')
+					AND t.tournament_code = up.source_code
+
+			-- tournament_paid -> users_transactions -> tournaments
+			LEFT JOIN users_transactions ut_tour_paid
+					ON up.data_source = 'tournament_paid'
+					AND ut_tour_paid.user_id = up.user_id
+					AND ut_tour_paid.transaction_code = up.source_code
+			LEFT JOIN tournaments tt
+					ON tt.tournament_code = ut_tour_paid.source_code
+
+			-- redeem
+			LEFT JOIN user_redeem_histories urh
+					ON up.data_source = 'redeem'
+					AND urh.custom_id = up.source_code
+
+			-- badge
+			LEFT JOIN badges b
+					ON up.data_source = 'badge'
+					AND b.badge_code = up.source_code
+
+			-- game
+			LEFT JOIN games g
+					ON up.data_source = 'game'
+					AND g.game_code = up.source_code
+
+			-- tier
+			LEFT JOIN tiers
+					ON up.data_source = 'tier'
+					AND tiers.tier_code = up.source_code
+
+			WHERE u.user_code = $1
+				AND up.data_source IN (
+				'room',
+				'room_play',
+				'room_paid',
+				'tournament',
+				'tournament_play',
+				'tournament_paid',
+				'redeem',
+				'badge',
+				'game',
+				'profile',
+				'point_subtract',
+				'point_add',
+				'tier'
+				)
+			) AS t
+			WHERE t.source_name IS NOT NULL`
+	)
+
+	{
+		totalData := 0
+		newQcount := `SELECT COUNT(*) FROM ( ` + query + ` ) AS total`
+		err := db.QueryRow(ctx, newQcount, UserCode).Scan(&totalData)
+		if err != nil {
+			return list, param, c.errHandler("model.GetUserPointHistories", err, utils.ErrCountingListUserPointHistory)
+		}
+		param.Count = totalData
+	}
+
+	var (
+		conditions []string
+		args       []interface{}
+	)
+
+	args = append(args, UserCode)
+	if param.SourceType != "" {
+		if param.SourceType == "point" {
+			conditions = append(conditions, fmt.Sprintf("t.source_type IN ($%d, $%d)", len(args)+1, len(args)+2))
+			args = append(args, "point_subtract", "point_add")
+		} else {
+			args = append(args, param.SourceType)
+			conditions = append(conditions, fmt.Sprintf("t.source_type = $%d", len(args)))
+		}
+	}
+
+	if len(conditions) > 0 {
+		query = fmt.Sprintf("%s AND %s", query, strings.Join(conditions, " AND "))
+	}
+
+	if param.Order != "" && param.Sort != "" {
+		query = fmt.Sprintf("%s ORDER BY t.%s %s", query, param.Order, param.Sort)
+	}
+
+	if param.Limit > 0 {
+		query = fmt.Sprintf("%s LIMIT %d", query, param.Limit)
+	}
+
+	if param.Offset > 0 {
+		query = fmt.Sprintf("%s OFFSET %d", query, param.Offset)
+	}
+
+	rows, err := db.Query(ctx, query, args...)
+	if err != nil {
+		return list, param, c.errHandler("model.GetUserPointHistories", err, utils.ErrGetUsersPointHistories)
+	}
+
+	defer rows.Close()
+	for rows.Next() {
+		var data UserPointHistory
+		err = rows.Scan(
+			&data.SourceId,
+			&data.SourceUserCode,
+			&data.SourceType,
+			&data.SourceCode,
+			&data.SourceName,
+			&data.Point,
+			&data.CreatedDate,
+		)
+		if err != nil {
+			return list, param, c.errHandler("model.GetUserPointHistories", err, utils.ErrScanUsersPointHistories)
+		}
+		list = append(list, data)
+	}
+
+	return list, param, nil
 }
 
 func (c *Contract) GetUserIdByUserCode(db *pgxpool.Pool, ctx context.Context, UserCode string) (int64, error) {

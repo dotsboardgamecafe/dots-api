@@ -534,6 +534,91 @@ func (h *Contract) GetUserPointActivities(w http.ResponseWriter, r *http.Request
 	h.SendSuccess(w, res, nil)
 }
 
+func (h *Contract) GetUserPointHistories(w http.ResponseWriter, r *http.Request) {
+	var (
+		err   error
+		ctx   = context.TODO()
+		m     = model.Contract{App: h.App}
+		code  = chi.URLParam(r, "code")
+		res   = make([]response.UserPointHistoryResponse, 0)
+		param = request.UserPointHistoryParam{}
+	)
+
+	// Define urlQuery and Parse
+	_ = param.Parse(r.URL.Query())
+
+	data, param, err := m.GetUserPointHistories(h.DB, ctx, code, param)
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		return
+	}
+
+	// Populate response
+	for _, v := range data {
+		res = append(res, response.UserPointHistoryResponse{
+			SourceId:       v.SourceId,
+			SourceUserCode: v.SourceUserCode,
+			SourceType:     v.SourceType,
+			SourceCode:     v.SourceCode,
+			SourceName:     v.SourceName,
+			Point:          v.Point,
+			CreatedDate:    v.CreatedDate.Format(utils.DATE_TIME_FORMAT),
+		})
+	}
+
+	// Populate response
+	h.SendSuccess(w, res, param)
+}
+
+func (h *Contract) AdjustUserPointAct(w http.ResponseWriter, r *http.Request) {
+	var (
+		err  error
+		ctx  = context.TODO()
+		m    = model.Contract{App: h.App}
+		code = chi.URLParam(r, "code")
+		req  = request.UserPointAdjustmentRequest{}
+	)
+
+	// Bind and validate
+	if err = h.BindAndValidate(r, &req); err != nil {
+		h.SendBindAndValidateError(w, err)
+		return
+	}
+
+	user, err := m.GetUserByUserCode(h.DB, ctx, code)
+	if err != nil {
+		h.SendInternalServerErr(w, err.Error())
+		return
+	}
+
+	tx, err := h.DB.Begin(ctx)
+	if err != nil {
+		h.SendInternalServerErr(w, err.Error())
+		return
+	}
+
+	defer func() {
+		if err != nil {
+			tx.Rollback(ctx)
+		}
+		tx.Commit(ctx)
+	}()
+
+	dataSource := utils.UserPointType["POINT_ADD"]
+	sourceCode := "P-ADD"
+	point := req.Point
+
+	if req.AdjustmentType == "subtract" {
+		dataSource = utils.UserPointType["POINT_SUB"]
+		sourceCode = "P-SUB"
+		point = -req.Point
+	}
+
+	m.AddUserPoint(tx, ctx, int64(user.ID), dataSource, sourceCode, point)
+
+	h.SendSuccess(w, nil, nil)
+}
+
 // DeleteUserAct ...
 func (h *Contract) DeleteUserAct(w http.ResponseWriter, r *http.Request) {
 	var (
