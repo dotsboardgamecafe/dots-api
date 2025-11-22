@@ -127,6 +127,19 @@ func (h *Contract) AddUserGameCollectionAct(w http.ResponseWriter, r *http.Reque
 		queueData = rabbit.QueueDataPayload(
 			rabbit.QueueUserBadge,
 			rabbit.QueueUserBadgeReq(
+				utils.SpesificBoardGameCategory,
+				userID,
+			),
+		)
+		err = rabbit.PublishQueue(ctx, queueHost, queueData)
+		if err != nil {
+			log.Printf("Error : %s", err)
+		}
+
+		// Publisher badge
+		queueData = rabbit.QueueDataPayload(
+			rabbit.QueueUserBadge,
+			rabbit.QueueUserBadgeReq(
 				utils.TimeLimit,
 				userID,
 			),
