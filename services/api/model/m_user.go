@@ -899,10 +899,8 @@ func (c *Contract) GetUserPointHistories(db *pgxpool.Pool, ctx context.Context, 
 
 			WHERE u.user_code = $1
 				AND up.data_source IN (
-				'room',
 				'room_play',
 				'room_paid',
-				'tournament',
 				'tournament_play',
 				'tournament_paid',
 				'redeem',
