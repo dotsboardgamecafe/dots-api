@@ -554,6 +554,12 @@ func (h *Contract) GetUserPointHistories(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Populate response
+	tz, err := time.LoadLocation("Asia/Jakarta")
+	if err != nil {
+		h.Log.File().Error("handler.GetUserPointHistories: failed to load timezone", err)
+		tz = time.UTC
+	}
+
 	for _, v := range data {
 		res = append(res, response.UserPointHistoryResponse{
 			SourceId:       v.SourceId,
@@ -562,7 +568,7 @@ func (h *Contract) GetUserPointHistories(w http.ResponseWriter, r *http.Request)
 			SourceCode:     v.SourceCode,
 			SourceName:     v.SourceName,
 			Point:          v.Point,
-			CreatedDate:    v.CreatedDate.Format(utils.DATE_TIME_FORMAT),
+			CreatedDate:    v.CreatedDate.In(tz).Format(utils.DATE_TIME_FORMAT),
 		})
 	}
 

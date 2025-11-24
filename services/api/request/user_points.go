@@ -21,7 +21,7 @@ type UserPointHistoryParam struct {
 func (param *UserPointHistoryParam) Parse(values url.Values) error {
 	param.Page = 1
 	param.Limit = 10
-	param.Sort = "desc"
+	param.Sort = "asc"
 	param.Order = "created_date"
 	param.Offset = 0
 
