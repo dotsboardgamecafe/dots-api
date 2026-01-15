@@ -81,7 +81,7 @@ func (h *Contract) GetGameListAct(w http.ResponseWriter, r *http.Request) {
 			GameCategories:     response.BuildGameCategoryResp(v.GameCategories.String),
 			GameMasters:        gameMasterRes,
 			NumberOfPopularity: v.NumberOfPopularity,
-			GameStats:          response.GameStatsRes{NumberOfPlayed: v.TotalPlayed},
+			GameStats:          response.GameStatsRes{NumberOfPlayed: v.NumberOfPopularity},
 			// GameCharacteristic: response.BuildGameCharacteristicResp(v.GameCharacteristic.String),
 		})
 	}

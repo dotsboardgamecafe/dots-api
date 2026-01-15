@@ -163,6 +163,72 @@ func (c *Contract) GetAllClaimedInvoiceHistories(db *pgxpool.Pool, ctx context.C
 			u.user_code,
 			u.username,
 			u.fullname,
+			ut.transaction_code AS custom_id,
+			ut.transaction_code AS invoice_code,
+			ut.price AS invoice_amount,
+			CASE 
+				WHEN r.id IS NOT NULL THEN
+					CONCAT('Room ', r.name, ' booking fee')
+				WHEN t.id IS NOT NULL THEN
+					CONCAT('Tournament ', t.name, ' booking fee')  -- Fixed: was r.name
+				ELSE ''
+			END AS invoice_description,
+			CASE 
+				WHEN r.id IS NOT NULL THEN
+					jsonb_build_object(
+						'order_id', 0,
+						'order_no', 'APP',
+						'order_items', jsonb_build_array(
+							jsonb_build_object(
+								'qty', 1,
+								'sku', '',
+								'name', 'Room: ' || r.name,
+								'price', ut.price,
+								'product_id', 0,
+								'klasifikasi', '-',
+								'category_name', '-'
+							)
+						),
+						'created_time', ut.updated_date,
+						'order_status', 'Selesai',
+						'total_amount', ut.price,
+						'total_item_qty', 1
+					)
+				WHEN t.id IS NOT NULL THEN
+					jsonb_build_object(
+						'order_id', 0,
+						'order_no', 'APP',
+						'order_items', jsonb_build_array(
+							jsonb_build_object(
+								'qty', 1,
+								'sku', '',
+								'name', 'Tournament: ' || t.name,  -- Fixed label
+								'price', ut.price,
+								'product_id', 0,
+								'klasifikasi', '-',
+								'category_name', '-'
+							)
+						),
+						'created_time', ut.updated_date,
+						'order_status', 'Selesai',
+						'total_amount', ut.price,
+						'total_item_qty', 1
+					)
+				ELSE NULL
+			END AS invoice_information,
+			ut.created_date AS created_date,
+			ut.updated_date AS updated_date 
+		FROM users_transactions ut 
+			JOIN users u ON u.id = ut.user_id AND u.deleted_date IS NULL
+			LEFT JOIN rooms AS r ON ut.source_code = r.room_code
+			LEFT JOIN tournaments AS t ON ut.source_code = t.tournament_code
+		WHERE ut.status = 'PAID' AND ut.price > 0
+		UNION
+		SELECT
+			u.id AS user_id,
+			u.user_code,
+			u.username,
+			u.fullname,
 			custom_id,
 			invoice_code,
 			invoice_amount,
