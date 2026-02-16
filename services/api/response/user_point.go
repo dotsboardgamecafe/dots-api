@@ -7,5 +7,6 @@ type UserPointHistoryResponse struct {
 	SourceCode     string `json:"source_code"`
 	SourceName     string `json:"source_name"`
 	Point          int    `json:"point"`
+	Description    string `json:"description"`
 	CreatedDate    string `json:"created_date"`
 }

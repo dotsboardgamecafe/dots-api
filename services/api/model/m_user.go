@@ -705,6 +705,10 @@ func (c *Contract) GetUserPointActivities(db *pgxpool.Pool, ctx context.Context,
 					THEN 'Collected: ' || g.name
 				WHEN up.data_source = 'profile'
 					THEN 'Profile: Updated Profile Image for the first time'
+				WHEN up.data_source = 'point_subtract'
+					THEN 'Point: ' || COALESCE(up.description, 'Point Deducted by System')
+				WHEN up.data_source = 'point_add'
+					THEN 'Point: ' || COALESCE(up.description, 'Point Added by System')
 				END AS title_description,
 				up.data_source, 
 				up.source_code,
@@ -764,7 +768,9 @@ func (c *Contract) GetUserPointActivities(db *pgxpool.Pool, ctx context.Context,
 				'redeem',
 				'badge',
 				'game',
-				'profile'
+				'profile',
+				'point_subtract',
+				'point_add'
 				)
 			) AS t
 			WHERE t.title_description IS NOT NULL
@@ -812,6 +818,7 @@ func (c *Contract) GetUserPointHistories(db *pgxpool.Pool, ctx context.Context, 
 				t.source_code,
 				t.source_name,
 				t.point,
+				t.description,
 				t.created_date
 			FROM (
 			SELECT
@@ -846,6 +853,7 @@ func (c *Contract) GetUserPointHistories(db *pgxpool.Pool, ctx context.Context, 
 					THEN 'Tier: You have reached tier ' || tiers.name
 				END AS source_name,
 				up.point,
+				COALESCE(up.description, '') as description,
 				up.created_date
 			FROM users_points up
 			JOIN users u
@@ -972,6 +980,7 @@ func (c *Contract) GetUserPointHistories(db *pgxpool.Pool, ctx context.Context, 
 			&data.SourceCode,
 			&data.SourceName,
 			&data.Point,
+			&data.Description,
 			&data.CreatedDate,
 		)
 		if err != nil {

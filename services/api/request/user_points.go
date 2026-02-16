@@ -69,6 +69,7 @@ func (param *UserPointHistoryParam) Parse(values url.Values) error {
 }
 
 type UserPointAdjustmentRequest struct {
-	AdjustmentType string `json:"adjustment_type" validate:"required,oneof=add subtract"`
-	Point          int    `json:"point" validate:"required,min=1,max=10000"`
+	AdjustmentType string  `json:"adjustment_type" validate:"required,oneof=add subtract"`
+	Point          int     `json:"point" validate:"required,min=1,max=10000"`
+	Description    *string `json:"description,omitempty"`
 }

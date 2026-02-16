@@ -568,6 +568,7 @@ func (h *Contract) GetUserPointHistories(w http.ResponseWriter, r *http.Request)
 			SourceCode:     v.SourceCode,
 			SourceName:     v.SourceName,
 			Point:          v.Point,
+			Description:    v.Description,
 			CreatedDate:    v.CreatedDate.In(tz).Format(utils.DATE_TIME_FORMAT),
 		})
 	}
@@ -620,7 +621,7 @@ func (h *Contract) AdjustUserPointAct(w http.ResponseWriter, r *http.Request) {
 		point = -req.Point
 	}
 
-	m.AddUserPoint(tx, ctx, int64(user.ID), dataSource, sourceCode, point)
+	m.AddUserPointWithDescription(tx, ctx, int64(user.ID), dataSource, sourceCode, point, req.Description)
 
 	h.SendSuccess(w, nil, nil)
 }

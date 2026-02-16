@@ -25,6 +25,7 @@ type UserPointEnt struct {
 	ItemCode         string    `db:"item_code"`
 	ItemImgUrl       string    `db:"item_img_url"`
 	Point            int       `db:"point"`
+	Description      string    `db:"description"`
 	CreatedDate      time.Time `db:"created_date"`
 }
 
@@ -35,6 +36,7 @@ type UserPointHistory struct {
 	SourceCode     string    `db:"source_code"`
 	SourceName     string    `db:"source_name"`
 	Point          int       `db:"point"`
+	Description    string    `db:"description"`
 	CreatedDate    time.Time `db:"created_date"`
 }
 
@@ -49,6 +51,100 @@ func (c *Contract) AddUserPoint(tx pgx.Tx, ctx context.Context, userId int64, da
 	VALUES($1, $2, $3, $4, $5);`
 
 	_, err := tx.Exec(ctx, sql, userId, dataSource, sourceCode, point, time.Now().In(time.UTC))
+	if err != nil {
+		return c.errHandler("model.AddUserPoint", err, utils.ErrAddUserPoint)
+	}
+
+	// Get latest point
+	userCode, currentUserPoint, currentUserTierId, _ := c.GetLatestPointAndTier(tx, ctx, userId)
+
+	// Calculate total point and define latest tier
+	finalTotalPoint := point + currentUserPoint
+	finalTier, _ := c.GetTierByPoinCriteria(tx, ctx, finalTotalPoint)
+
+	if currentUserTierId != finalTier.Id {
+		sqlUpdatePointAndTier := `UPDATE users
+			SET latest_point = $1, latest_tier_id = $2
+			WHERE id = $3;`
+
+		_, err = tx.Exec(ctx, sqlUpdatePointAndTier, finalTotalPoint, finalTier.Id, userId)
+		if err != nil {
+			return err
+		}
+
+		// Generate Notification code
+		notifCode := utils.GeneratePrefixCode(utils.NotifPrefix)
+
+		description := "Anda sekarang berada di tingkat/tier baru! Selamat datang di " + finalTier.Name + "yang lebih tinggi dengan akses lebih banyak fitur dan manfaat eksklusif."
+
+		descriptionJSON, err := json.Marshal(description)
+		if err != nil {
+			return err
+		}
+		// Insert data into db
+		err = c.AddNotificationWithTx(tx, ctx, notifCode, "user", userCode, userCode, utils.LevelUpType, utils.LevelUpTitle, descriptionJSON, "")
+		if err != nil {
+			return fmt.Errorf("error adding notification: %v", err)
+		}
+
+		// Storing Tier Benefit Notification
+		listBenefits, _ := c.GetBenefitsByTierId(tx, ctx, finalTier.Id)
+		if len(listBenefits) > 0 {
+			for _, benefit := range listBenefits {
+				notifBenefitCode := utils.GeneratePrefixCode(utils.NotifPrefix)
+
+				description = "Selamat! Anda telah beruntung dan mendapatkan " + benefit.Name + " dari kami. Kami berterima kasih atas partisipasi Anda!"
+
+				descriptionJSON, err := json.Marshal(description)
+				if err != nil {
+					return err
+				}
+
+				// Insert data into db
+				err = c.AddNotificationWithTx(tx, ctx, notifBenefitCode, "user", userCode, benefit.RewardCode, utils.RewardsType, utils.RewardsTitle, descriptionJSON, benefit.ImageUrl)
+				if err != nil {
+					return fmt.Errorf("error adding notification: %v", err)
+				}
+			}
+		}
+
+		sql := `INSERT INTO users_points(
+			user_id,
+			data_source,
+			source_code,
+			point,
+			created_date
+		)
+		VALUES($1, $2, $3, $4, $5);`
+
+		_, err = tx.Exec(ctx, sql, userId, utils.UserPointType["TIER"], finalTier.TierCode, 0, time.Now().In(time.UTC))
+		if err != nil {
+			return c.errHandler("model.AddUserPoint", err, utils.ErrAddUserPoint)
+		}
+	} else {
+		sqlUpdatePointAndTier := `UPDATE users SET latest_point = $1 WHERE id = $2;`
+
+		_, err = tx.Exec(ctx, sqlUpdatePointAndTier, finalTotalPoint, userId)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (c *Contract) AddUserPointWithDescription(tx pgx.Tx, ctx context.Context, userId int64, dataSource string, sourceCode string, point int, description *string) error {
+	sql := `INSERT INTO users_points(
+		user_id,
+		data_source,
+		source_code,
+		point,
+		description,
+		created_date
+	)
+	VALUES($1, $2, $3, $4, $5, $6);`
+
+	_, err := tx.Exec(ctx, sql, userId, dataSource, sourceCode, point, description, time.Now().In(time.UTC))
 	if err != nil {
 		return c.errHandler("model.AddUserPoint", err, utils.ErrAddUserPoint)
 	}
