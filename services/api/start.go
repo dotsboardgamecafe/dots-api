@@ -28,7 +28,7 @@ var (
 	Flags = []cli.Flag{
 		&cli.StringFlag{
 			Name:  "host",
-			Value: "127.0.0.1:3000",
+			Value: "127.0.0.1:8000",
 			Usage: "Run API serive with custom host",
 		},
 	}

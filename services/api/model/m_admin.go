@@ -187,7 +187,7 @@ func (c *Contract) GetAdminByEmail(db *pgxpool.Pool, ctx context.Context, email 
 		WHERE email = $1`
 	)
 
-	err = db.QueryRow(ctx, sqlQuery, email).Scan(&data.AdminCode, &data.Email, &data.Name, &data.UserName, &data.Password, &data.Status, &data.PhoneNumber, &data.ImageURL, &data.RoleId)
+	err = db.QueryRow(ctx, sqlQuery, strings.ToLower(strings.TrimSpace(email))).Scan(&data.AdminCode, &data.Email, &data.Name, &data.UserName, &data.Password, &data.Status, &data.PhoneNumber, &data.ImageURL, &data.RoleId)
 	if err != nil && err != pgx.ErrNoRows {
 		return data, c.errHandler("model.GetAdminByEmail", err, utils.ErrGettingAdminByEmail)
 	}
@@ -236,7 +236,7 @@ func (c *Contract) AddAdmin(db *pgxpool.Pool, ctx context.Context, adminCode, em
 		roleId = utils.RoleCashierId
 	}
 
-	_, err = db.Exec(ctx, sql, adminCode, email, name, userName, hashedPassword, status, phoneNumber, imageURL, roleId, time.Now().In(time.UTC))
+	_, err = db.Exec(ctx, sql, adminCode, strings.ToLower(strings.TrimSpace(email)), name, userName, hashedPassword, status, phoneNumber, imageURL, roleId, time.Now().In(time.UTC))
 	if err != nil {
 		return c.errHandler("model.AddAdmin", err, utils.ErrAddingAdmin)
 	}
@@ -263,6 +263,8 @@ func (c *Contract) UpdateAdminByCode(db *pgxpool.Pool, ctx context.Context, admi
 	//ignore update
 	if len(email) < 1 {
 		email = adminExist.Email
+	} else {
+		email = strings.ToLower(strings.TrimSpace(email))
 	}
 
 	if len(phoneNumber) < 1 {

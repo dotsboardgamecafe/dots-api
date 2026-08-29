@@ -90,7 +90,7 @@ func (h *Contract) TransactionCallback(w http.ResponseWriter, r *http.Request) {
 		}
 
 		//update status participant
-		err = m.UpdateRoomParticipant(tx, ctx, participant.RoomId, participant.UserId, participant.StatusWinner, participant.Position, statusParticipant, participant.AdditionalInfo.String, participant.RewardPoint.Int64, participant.TransactionCode.String)
+		err = m.UpdateRoomParticipant(tx, ctx, participant.RoomId, participant.UserId, participant.StatusWinner, participant.Position, statusParticipant, participant.AdditionalInfo, participant.RewardPoint.Int64, participant.TransactionCode.String)
 		if err != nil {
 			h.SendBadRequest(w, err.Error())
 			return

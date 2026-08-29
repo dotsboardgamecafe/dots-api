@@ -3,7 +3,11 @@ package model
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"dots-api/lib/utils"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v4"
@@ -11,37 +15,76 @@ import (
 )
 
 type (
+	ParticipantAdditionalInfo struct {
+		RegistrationType string `db:"registration_type" json:"registration_type"`
+	}
+
 	RoomParticipantEnt struct {
-		Id              int64          `db:"id"`
-		RoomId          int64          `db:"room_id"`
-		UserId          int64          `db:"user_id"`
-		StatusWinner    bool           `db:"status_winner"`
-		Status          string         `db:"status"`
-		Position        int            `db:"position"`
-		AdditionalInfo  sql.NullString `db:"additional_info"`
-		RewardPoint     sql.NullInt64  `db:"reward_point"`
-		TransactionCode sql.NullString `db:"transaction_code"`
+		Id              int64                     `db:"id"`
+		RoomId          int64                     `db:"room_id"`
+		UserId          int64                     `db:"user_id"`
+		StatusWinner    bool                      `db:"status_winner"`
+		Status          string                    `db:"status"`
+		Position        int                       `db:"position"`
+		AdditionalInfo  ParticipantAdditionalInfo `db:"additional_info"`
+		RewardPoint     sql.NullInt64             `db:"reward_point"`
+		TransactionCode sql.NullString            `db:"transaction_code"`
 	}
 
 	RoomParticipantResp struct {
-		UserCode           string         `db:"user_code"`
-		UserName           string         `db:"user_name"`
-		UserImgUrl         string         `db:"user_image_url"`
-		UserStyle          UserStyle      `db:"user_style"`
-		UserXPlayer        string         `db:"user_x_player"`
-		StatusWinner       bool           `db:"status_winner"`
-		Status             string         `db:"status"`
-		TransactionCode    sql.NullString `db:"transaction_code"`
-		AdditionalInfo     sql.NullString `db:"additional_info"`
-		Position           int            `db:"position"`
-		RewardPoint        sql.NullInt64  `db:"reward_point"`
-		RoomId             int64          `db:"room_id"`
-		UserId             int64          `db:"user_id"`
-		ParticipationPoint int            `db:"participation_point"`
-		LatestTier         sql.NullString `db:"latest_tier"`
-		RoomBannerUri      string         `db:"room_banner_uri"`
+		UserCode           string                    `db:"user_code"`
+		UserName           string                    `db:"user_name"`
+		UserImgUrl         string                    `db:"user_image_url"`
+		UserStyle          UserStyle                 `db:"user_style"`
+		UserXPlayer        string                    `db:"user_x_player"`
+		StatusWinner       bool                      `db:"status_winner"`
+		Status             string                    `db:"status"`
+		TransactionCode    sql.NullString            `db:"transaction_code"`
+		AdditionalInfo     ParticipantAdditionalInfo `db:"additional_info"`
+		Position           int                       `db:"position"`
+		RewardPoint        sql.NullInt64             `db:"reward_point"`
+		RoomId             int64                     `db:"room_id"`
+		UserId             int64                     `db:"user_id"`
+		ParticipationPoint int                       `db:"participation_point"`
+		LatestTier         sql.NullString            `db:"latest_tier"`
+		RoomBannerUri      string                    `db:"room_banner_uri"`
 	}
 )
+
+func (p *ParticipantAdditionalInfo) Value() (driver.Value, error) {
+	if p == nil || p.RegistrationType == "" {
+		return json.Marshal(ParticipantAdditionalInfo{RegistrationType: "self_booking"})
+	}
+	return json.Marshal(p)
+}
+
+func (p *ParticipantAdditionalInfo) Scan(value interface{}) error {
+	if value == nil {
+		*p = ParticipantAdditionalInfo{RegistrationType: "self_booking"}
+		return nil
+	}
+
+	b, ok := value.([]byte)
+	if !ok {
+		str, ok := value.(string)
+		if ok {
+			if str == "" || str == "member" {
+				*p = ParticipantAdditionalInfo{RegistrationType: "self_booking"}
+				return nil
+			}
+			return json.Unmarshal([]byte(str), p)
+		}
+
+		return errors.New("m.ParticipantAdditionalInfo.Scan: " + utils.ErrTypeAssertionFailed + " expected []byte, got " + fmt.Sprintf("%T", value))
+	}
+
+	if string(b) == "member" || string(b) == "" {
+		*p = ParticipantAdditionalInfo{RegistrationType: "self_booking"}
+		return nil
+	}
+
+	return json.Unmarshal(b, p)
+}
 
 func (c *Contract) GetAllParticipantByRoomCode(db *pgxpool.Pool, ctx context.Context, code string) ([]RoomParticipantResp, error) {
 	var (
@@ -240,26 +283,26 @@ func (c *Contract) CountRoomParticipantByUserIdAndStartDateAndLifeTime(db *pgxpo
 	return count, nil
 }
 
-func (c *Contract) InsertOneRoomParticipant(tx pgx.Tx, ctx context.Context, roomId, userId int64, status string, rewardPoint int64, transactionCode string) error {
+func (c *Contract) InsertOneRoomParticipant(tx pgx.Tx, ctx context.Context, roomId, userId int64, status string, rewardPoint int64, transactionCode string, additionalInfo ParticipantAdditionalInfo) error {
 	var (
 		err   error
-		query = `INSERT INTO rooms_participants(room_id, user_id, status, reward_point, transaction_code) VALUES($1,$2,$3,$4,$5)`
+		query = `INSERT INTO rooms_participants(room_id, user_id, status, reward_point, transaction_code, additional_info) VALUES($1,$2,$3,$4,$5,$6)`
 	)
-	_, err = tx.Exec(ctx, query, roomId, userId, status, rewardPoint, transactionCode)
+	_, err = tx.Exec(ctx, query, roomId, userId, status, rewardPoint, transactionCode, &additionalInfo)
 	if err != nil {
 		return c.errHandler("model.InsertOneRoomParticipant", err, utils.ErrAddingRoomParticipant)
 	}
 	return nil
 }
 
-func (c *Contract) UpdateRoomParticipant(tx pgx.Tx, ctx context.Context, roomId, userId int64, statusWinner bool, position int, status string, additionalInfo string, rewardPoint int64, transactionCode string) error {
+func (c *Contract) UpdateRoomParticipant(tx pgx.Tx, ctx context.Context, roomId, userId int64, statusWinner bool, position int, status string, additionalInfo ParticipantAdditionalInfo, rewardPoint int64, transactionCode string) error {
 	var (
 		err   error
 		query = `UPDATE rooms_participants 
 		SET status_winner=$1, status=$2, additional_info=$3, reward_point=$4, position=$5, transaction_code=$6, updated_date=$7
         WHERE room_id=$8 AND user_id=$9`
 	)
-	_, err = tx.Exec(ctx, query, statusWinner, status, additionalInfo, rewardPoint, position, transactionCode, time.Now().UTC(), roomId, userId)
+	_, err = tx.Exec(ctx, query, statusWinner, status, &additionalInfo, rewardPoint, position, transactionCode, time.Now().UTC(), roomId, userId)
 	if err != nil {
 		return c.errHandler("model.UpdateRoomParticipant", err, utils.ErrUpdatingRoomParticipant)
 	}

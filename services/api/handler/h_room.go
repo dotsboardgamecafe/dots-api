@@ -10,9 +10,11 @@ import (
 	"dots-api/services/api/request"
 	"dots-api/services/api/response"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -116,16 +118,18 @@ func (h *Contract) GetRoomByCode(w http.ResponseWriter, r *http.Request) {
 	// Populate participant
 	for _, participant := range participantInfo {
 		resParticipant := response.RoomParticipantRes{
-			UserCode:       participant.UserCode,
-			UserName:       participant.UserName,
-			UserImgUrl:     participant.UserImgUrl,
-			UserStyle:      response.UserStyleRes{Color: participant.UserStyle.Color},
-			StatusWinner:   participant.StatusWinner,
-			Status:         participant.Status,
-			AdditionalInfo: participant.AdditionalInfo.String,
-			Position:       participant.Position,
-			RewardPoint:    int(participant.RewardPoint.Int64),
-			LatestTier:     participant.LatestTier.String,
+			UserCode:     participant.UserCode,
+			UserName:     participant.UserName,
+			UserImgUrl:   participant.UserImgUrl,
+			UserStyle:    response.UserStyleRes{Color: participant.UserStyle.Color},
+			StatusWinner: participant.StatusWinner,
+			Status:       participant.Status,
+			AdditionalInfo: response.ParticipantAdditionalInfoRes{
+				RegistrationType: participant.AdditionalInfo.RegistrationType,
+			},
+			Position:    participant.Position,
+			RewardPoint: int(participant.RewardPoint.Int64),
+			LatestTier:  participant.LatestTier.String,
 		}
 		resRoomParticipant = append(resRoomParticipant, resParticipant)
 	}
@@ -618,17 +622,21 @@ func (h *Contract) BookingRoom(w http.ResponseWriter, r *http.Request) {
 		}(ctx, int64(user.ID))
 	}
 
+	additionalInfo := model.ParticipantAdditionalInfo{
+		RegistrationType: "self_booking",
+	}
+
 	// check if exist
 	if len(participant.UserCode) > 0 && participant.Status != "active" {
 		//update status
-		err = m.UpdateRoomParticipant(tx, ctx, room.RoomId, int64(user.ID), false, participant.Position, statusParticipant, participant.AdditionalInfo.String, participant.RewardPoint.Int64, transactionCode)
+		err = m.UpdateRoomParticipant(tx, ctx, room.RoomId, int64(user.ID), false, participant.Position, statusParticipant, additionalInfo, participant.RewardPoint.Int64, transactionCode)
 		if err != nil {
 			h.SendBadRequest(w, err.Error())
 			return
 		}
 	} else {
 		//add participant
-		err = m.InsertOneRoomParticipant(tx, ctx, room.RoomId, int64(user.ID), statusParticipant, participant.RewardPoint.Int64, transactionCode)
+		err = m.InsertOneRoomParticipant(tx, ctx, room.RoomId, int64(user.ID), statusParticipant, participant.RewardPoint.Int64, transactionCode, additionalInfo)
 		if err != nil {
 			h.SendBadRequest(w, err.Error())
 			return
@@ -712,7 +720,7 @@ func (h *Contract) SetWinnerRoomAct(w http.ResponseWriter, r *http.Request) {
 			statusWinner = true
 		}
 
-		err = m.UpdateRoomParticipant(tx, ctx, room.RoomId, int64(userId), statusWinner, req.Position, roomParticipantEnt.Status, "member", int64(roomParticipantEnt.RewardPoint.Int64)+int64(room.RewardPoint), roomParticipantEnt.TransactionCode.String)
+		err = m.UpdateRoomParticipant(tx, ctx, room.RoomId, int64(userId), statusWinner, req.Position, roomParticipantEnt.Status, roomParticipantEnt.AdditionalInfo, int64(roomParticipantEnt.RewardPoint.Int64)+int64(room.RewardPoint), roomParticipantEnt.TransactionCode.String)
 		if err != nil {
 			h.Log.File().Error("handler.SetWinnerRoomAct: "+err.Error(), room.RoomId, userId)
 			continue
@@ -930,6 +938,168 @@ func (h *Contract) DeleteRoom(w http.ResponseWriter, r *http.Request) {
 	h.SendSuccess(w, nil, nil)
 }
 
+// AddRoomParticipantsAct adds players to a room (additive)
+func (h *Contract) AddRoomParticipantsAct(w http.ResponseWriter, r *http.Request) {
+	var (
+		err      error
+		ctx      = context.TODO()
+		m        = model.Contract{App: h.App}
+		roomCode = chi.URLParam(r, "code")
+		req      = request.AddRoomParticipantsReq{}
+	)
+
+	// Binding and Validate
+	if err = h.BindAndValidate(r, &req); err != nil {
+		h.SendBindAndValidateError(w, err)
+		return
+	}
+
+	if len(req.UserCodes) == 0 {
+		h.SendBadRequest(w, "user_codes cannot be empty")
+		return
+	}
+
+	room, err := m.GetRoomByCode(h.DB, ctx, roomCode)
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		return
+	}
+
+	params := roomParams{RoomStatus: room.Status, IsBooking: true}
+	if isRoomClosed(w, h, params) {
+		return
+	}
+
+	if isRoomInactive(w, h, params) {
+		return
+	}
+
+	// Deduplicate user codes
+	uniqueUserCodes := make([]string, 0, len(req.UserCodes))
+	seen := make(map[string]bool)
+	for _, code := range req.UserCodes {
+		trimmed := strings.TrimSpace(code)
+		if trimmed != "" && !seen[trimmed] {
+			seen[trimmed] = true
+			uniqueUserCodes = append(uniqueUserCodes, trimmed)
+		}
+	}
+
+	if len(uniqueUserCodes) == 0 {
+		h.SendBadRequest(w, "user_codes cannot be empty")
+		return
+	}
+
+	// Get current total participant
+	totalParticipant, err := m.CountParticipantRoomByRoomId(h.DB, ctx, room.RoomId)
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		return
+	}
+
+	if totalParticipant+len(uniqueUserCodes) > room.MaximumParticipant {
+		h.SendBadRequest(w, fmt.Sprintf("Cannot add %d participants. Available slots: %d", len(uniqueUserCodes), room.MaximumParticipant-totalParticipant))
+		return
+	}
+
+	tx, err := h.DB.Begin(ctx)
+	if err != nil {
+		h.SendBadRequest(w, err.Error())
+		return
+	}
+	defer func() {
+		if err != nil {
+			tx.Rollback(ctx)
+			return
+		}
+		tx.Commit(ctx)
+	}()
+
+	addedUsers := make([]int64, 0, len(uniqueUserCodes))
+
+	for _, userCode := range uniqueUserCodes {
+		user, errUser := m.GetUserByUserCode(h.DB, ctx, userCode)
+		if errUser != nil {
+			err = errUser
+			h.SendBadRequest(w, fmt.Sprintf("User %s not found: %s", userCode, errUser.Error()))
+			return
+		}
+
+		participant, errPart := m.GetParticipantByRoomCodeAndUserCode(h.DB, ctx, roomCode, userCode)
+		if errPart != nil {
+			err = errPart
+			h.SendBadRequest(w, errPart.Error())
+			return
+		}
+
+		if len(participant.UserCode) > 0 && participant.Status == "active" {
+			err = fmt.Errorf("user %s is already an active participant in this room", userCode)
+			h.SendBadRequest(w, err.Error())
+			return
+		}
+
+		// Create complimentary transaction record
+		_, transactionCode, _, _, errTrx := m.CreateFreeInvoice(tx, ctx, int64(user.ID), utils.UserPointType["ROOM_TYPE"], roomCode, 0, fmt.Sprintf("MANUAL-%s-%s", userCode, roomCode), user.Email.String)
+		if errTrx != nil {
+			err = errTrx
+			h.SendBadRequest(w, errTrx.Error())
+			return
+		}
+
+		// Add user point from price (transaction log)
+		errPoint := m.AddUserPoint(tx, ctx, int64(user.ID), utils.UserPointType["ROOM_PAID"], transactionCode, 0)
+		if errPoint != nil {
+			err = errPoint
+			h.SendBadRequest(w, errPoint.Error())
+			return
+		}
+
+		// Add user point for activity tracking
+		errPoint = m.AddUserPoint(tx, ctx, int64(user.ID), utils.UserPointType["ROOM_TYPE"], roomCode, 0)
+		if errPoint != nil {
+			err = errPoint
+			h.SendBadRequest(w, errPoint.Error())
+			return
+		}
+
+		additionalInfo := model.ParticipantAdditionalInfo{
+			RegistrationType: "manual_admin",
+		}
+
+		if len(participant.UserCode) > 0 && participant.Status != "active" {
+			err = m.UpdateRoomParticipant(tx, ctx, room.RoomId, int64(user.ID), false, participant.Position, "active", additionalInfo, participant.RewardPoint.Int64, transactionCode)
+			if err != nil {
+				h.SendBadRequest(w, err.Error())
+				return
+			}
+		} else {
+			err = m.InsertOneRoomParticipant(tx, ctx, room.RoomId, int64(user.ID), "active", 0, transactionCode, additionalInfo)
+			if err != nil {
+				h.SendBadRequest(w, err.Error())
+				return
+			}
+		}
+
+		addedUsers = append(addedUsers, int64(user.ID))
+	}
+
+	go func(userIDs []int64) {
+		queueHost := m.Config.GetString("queue.rabbitmq.host")
+		for _, uID := range userIDs {
+			queueData := rabbit.QueueDataPayload(
+				rabbit.QueueUserBadge,
+				rabbit.QueueUserBadgeReq(
+					utils.TimeLimit,
+					uID,
+				),
+			)
+			_ = rabbit.PublishQueue(context.Background(), queueHost, queueData)
+		}
+	}(addedUsers)
+
+	h.SendSuccess(w, nil, nil)
+}
+
 // Set Participant status as "Inactive" to prevent them to gain
 // points and badges from the room in case they are not present
 // when the sessions end or asks for refund.
@@ -947,6 +1117,12 @@ func (h *Contract) RemoveRoomParticipantAct(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	userCodes := req.GetUserCodes()
+	if len(userCodes) == 0 {
+		h.SendBadRequest(w, "user_code or user_codes is required")
+		return
+	}
+
 	room, err := m.GetRoomByCode(h.DB, ctx, roomCode)
 	if err != nil {
 		h.SendBadRequest(w, err.Error())
@@ -955,23 +1131,6 @@ func (h *Contract) RemoveRoomParticipantAct(w http.ResponseWriter, r *http.Reque
 
 	params := roomParams{RoomStatus: room.Status}
 	if isRoomClosed(w, h, params) {
-		return
-	}
-
-	user, err := m.GetUserByUserCode(h.DB, ctx, req.UserCode)
-	if err != nil {
-		h.SendBadRequest(w, err.Error())
-		return
-	}
-
-	participant, err := m.GetOneRoomParticipant(h.DB, ctx, room.RoomId, int64(user.ID))
-	if err != nil {
-		h.SendBadRequest(w, err.Error())
-		return
-	}
-
-	if participant.Status == "inactive" {
-		h.SendBadRequest(w, utils.ErrDeactiveParticipantIsInactive)
 		return
 	}
 
@@ -989,35 +1148,71 @@ func (h *Contract) RemoveRoomParticipantAct(w http.ResponseWriter, r *http.Reque
 		tx.Commit(ctx)
 	}()
 
-	trx, err := m.GetTransactionBySourceCode(h.DB, ctx, user.UserCode, utils.UserPointType["ROOM_TYPE"], roomCode)
-	if err != nil {
-		h.SendBadRequest(w, err.Error())
-		return
-	}
+	for _, uCode := range userCodes {
+		user, errUser := m.GetUserByUserCode(h.DB, ctx, uCode)
+		if errUser != nil {
+			err = errUser
+			h.SendBadRequest(w, errUser.Error())
+			return
+		}
 
-	err = m.DeleteRoomParticipant(tx, ctx, room.RoomId, int64(user.ID))
-	if err != nil {
-		h.SendBadRequest(w, err.Error())
-		return
-	}
+		participant, errPart := m.GetOneRoomParticipant(h.DB, ctx, room.RoomId, int64(user.ID))
+		if errPart != nil {
+			err = errPart
+			h.SendBadRequest(w, errPart.Error())
+			return
+		}
 
-	err = m.RemoveUserPoint(tx, ctx, int64(user.ID), utils.UserPointType["ROOM_TYPE"], roomCode, 0)
-	if err != nil {
-		h.SendBadRequest(w, err.Error())
-		return
-	}
+		if participant.Status == "inactive" {
+			err = errors.New(utils.ErrDeactiveParticipantIsInactive)
+			h.SendBadRequest(w, err.Error())
+			return
+		}
 
-	if room.BookingPrice <= 0 {
-		err = m.RemoveUserPoint(tx, ctx, int64(user.ID), utils.UserPointType["ROOM_PAID"], trx.TransactionCode, 0)
+		trx, errTrx := m.GetTransactionBySourceCode(h.DB, ctx, user.UserCode, utils.UserPointType["ROOM_TYPE"], roomCode)
+		if errTrx != nil {
+			err = errTrx
+			h.SendBadRequest(w, errTrx.Error())
+			return
+		}
+
+		err = m.DeleteRoomParticipant(tx, ctx, room.RoomId, int64(user.ID))
 		if err != nil {
 			h.SendBadRequest(w, err.Error())
 			return
 		}
 
-		err = m.UpdateInvoiceTrx(tx, ctx, trx.AggregatorCode, "", utils.PaymentStatus["EXPIRED"], "")
+		err = m.RemoveUserPoint(tx, ctx, int64(user.ID), utils.UserPointType["ROOM_TYPE"], roomCode, 0)
 		if err != nil {
 			h.SendBadRequest(w, err.Error())
 			return
+		}
+
+		if participant.RewardPoint.Int64 > 0 {
+			err = m.RemoveUserPoint(tx, ctx, int64(user.ID), utils.UserPointType["ROOM_PLAY"], roomCode, int(participant.RewardPoint.Int64))
+			if err != nil {
+				h.SendBadRequest(w, err.Error())
+				return
+			}
+
+			if room.GameCode != "" {
+				_ = m.RemoveUserPoint(tx, ctx, int64(user.ID), utils.UserPointType["GAME_COLLECTION"], room.GameCode, utils.FirstTimePlayed.Int())
+				_, _ = tx.Exec(ctx, `DELETE FROM users_game_collections WHERE user_id = $1 AND game_id = $2`, user.ID, room.GameId)
+			}
+		}
+
+		if room.BookingPrice <= 0 || participant.AdditionalInfo.RegistrationType == "manual_admin" {
+			err = m.RemoveUserPoint(tx, ctx, int64(user.ID), utils.UserPointType["ROOM_PAID"], trx.TransactionCode, 0)
+			if err != nil {
+				h.SendBadRequest(w, err.Error())
+				return
+			}
+
+			err = m.UpdateInvoiceTrx(tx, ctx, trx.AggregatorCode, "", utils.PaymentStatus["EXPIRED"], "")
+			if err != nil {
+				h.SendBadRequest(w, err.Error())
+				return
+			}
 		}
 	}
 

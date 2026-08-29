@@ -46,14 +46,31 @@ type (
 		UserCode string `json:"user_code"`
 	}
 
+	AddRoomParticipantsReq struct {
+		UserCodes []string `json:"user_codes" validate:"required,min=1"`
+	}
+
 	UpdateStatusRoomReq struct {
 		Status string `json:"status" validate:"required"`
 	}
 
 	RoomParticipantRemoveReq struct {
-		UserCode string `json:"user_code" validate:"required"`
+		UserCode  string   `json:"user_code"`
+		UserCodes []string `json:"user_codes"`
 	}
+)
 
+func (r *RoomParticipantRemoveReq) GetUserCodes() []string {
+	if len(r.UserCodes) > 0 {
+		return r.UserCodes
+	}
+	if r.UserCode != "" {
+		return []string{r.UserCode}
+	}
+	return nil
+}
+
+type (
 	RoomParam struct {
 		Page     int      `json:"page"`
 		MaxPage  int      `json:"max_page"`

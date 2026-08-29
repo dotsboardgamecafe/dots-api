@@ -55,82 +55,17 @@ func (c *Contract) AddUserPoint(tx pgx.Tx, ctx context.Context, userId int64, da
 		return c.errHandler("model.AddUserPoint", err, utils.ErrAddUserPoint)
 	}
 
-	// Get latest point
+	// Get latest point and tier
 	userCode, currentUserPoint, currentUserTierId, _ := c.GetLatestPointAndTier(tx, ctx, userId)
 
 	// Calculate total point and define latest tier
 	finalTotalPoint := point + currentUserPoint
+	if finalTotalPoint < 0 {
+		finalTotalPoint = 0
+	}
 	finalTier, _ := c.GetTierByPoinCriteria(tx, ctx, finalTotalPoint)
 
-	if currentUserTierId != finalTier.Id {
-		sqlUpdatePointAndTier := `UPDATE users
-			SET latest_point = $1, latest_tier_id = $2
-			WHERE id = $3;`
-
-		_, err = tx.Exec(ctx, sqlUpdatePointAndTier, finalTotalPoint, finalTier.Id, userId)
-		if err != nil {
-			return err
-		}
-
-		// Generate Notification code
-		notifCode := utils.GeneratePrefixCode(utils.NotifPrefix)
-
-		description := "Anda sekarang berada di tingkat/tier baru! Selamat datang di " + finalTier.Name + "yang lebih tinggi dengan akses lebih banyak fitur dan manfaat eksklusif."
-
-		descriptionJSON, err := json.Marshal(description)
-		if err != nil {
-			return err
-		}
-		// Insert data into db
-		err = c.AddNotificationWithTx(tx, ctx, notifCode, "user", userCode, userCode, utils.LevelUpType, utils.LevelUpTitle, descriptionJSON, "")
-		if err != nil {
-			return fmt.Errorf("error adding notification: %v", err)
-		}
-
-		// Storing Tier Benefit Notification
-		listBenefits, _ := c.GetBenefitsByTierId(tx, ctx, finalTier.Id)
-		if len(listBenefits) > 0 {
-			for _, benefit := range listBenefits {
-				notifBenefitCode := utils.GeneratePrefixCode(utils.NotifPrefix)
-
-				description = "Selamat! Anda telah beruntung dan mendapatkan " + benefit.Name + " dari kami. Kami berterima kasih atas partisipasi Anda!"
-
-				descriptionJSON, err := json.Marshal(description)
-				if err != nil {
-					return err
-				}
-
-				// Insert data into db
-				err = c.AddNotificationWithTx(tx, ctx, notifBenefitCode, "user", userCode, benefit.RewardCode, utils.RewardsType, utils.RewardsTitle, descriptionJSON, benefit.ImageUrl)
-				if err != nil {
-					return fmt.Errorf("error adding notification: %v", err)
-				}
-			}
-		}
-
-		sql := `INSERT INTO users_points(
-			user_id,
-			data_source,
-			source_code,
-			point,
-			created_date
-		)
-		VALUES($1, $2, $3, $4, $5);`
-
-		_, err = tx.Exec(ctx, sql, userId, utils.UserPointType["TIER"], finalTier.TierCode, 0, time.Now().In(time.UTC))
-		if err != nil {
-			return c.errHandler("model.AddUserPoint", err, utils.ErrAddUserPoint)
-		}
-	} else {
-		sqlUpdatePointAndTier := `UPDATE users SET latest_point = $1 WHERE id = $2;`
-
-		_, err = tx.Exec(ctx, sqlUpdatePointAndTier, finalTotalPoint, userId)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return c.handleTierTransition(tx, ctx, userId, userCode, currentUserTierId, finalTier, finalTotalPoint)
 }
 
 func (c *Contract) AddUserPointWithDescription(tx pgx.Tx, ctx context.Context, userId int64, dataSource string, sourceCode string, point int, description *string) error {
@@ -149,28 +84,38 @@ func (c *Contract) AddUserPointWithDescription(tx pgx.Tx, ctx context.Context, u
 		return c.errHandler("model.AddUserPoint", err, utils.ErrAddUserPoint)
 	}
 
-	// Get latest point
+	// Get latest point and tier
 	userCode, currentUserPoint, currentUserTierId, _ := c.GetLatestPointAndTier(tx, ctx, userId)
 
 	// Calculate total point and define latest tier
 	finalTotalPoint := point + currentUserPoint
+	if finalTotalPoint < 0 {
+		finalTotalPoint = 0
+	}
 	finalTier, _ := c.GetTierByPoinCriteria(tx, ctx, finalTotalPoint)
 
-	if currentUserTierId != finalTier.Id {
-		sqlUpdatePointAndTier := `UPDATE users
-			SET latest_point = $1, latest_tier_id = $2
-			WHERE id = $3;`
+	return c.handleTierTransition(tx, ctx, userId, userCode, currentUserTierId, finalTier, finalTotalPoint)
+}
 
-		_, err = tx.Exec(ctx, sqlUpdatePointAndTier, finalTotalPoint, finalTier.Id, userId)
-		if err != nil {
-			return err
-		}
+func (c *Contract) handleTierTransition(tx pgx.Tx, ctx context.Context, userId int64, userCode string, currentUserTierId int64, finalTier TierEnt, finalTotalPoint int) error {
+	if currentUserTierId == finalTier.Id {
+		sqlUpdatePoint := `UPDATE users SET latest_point = $1 WHERE id = $2;`
+		_, err := tx.Exec(ctx, sqlUpdatePoint, finalTotalPoint, userId)
+		return err
+	}
 
-		// Generate Notification code
+	// Update user's latest_point and latest_tier_id
+	sqlUpdatePointAndTier := `UPDATE users SET latest_point = $1, latest_tier_id = $2 WHERE id = $3;`
+	_, err := tx.Exec(ctx, sqlUpdatePointAndTier, finalTotalPoint, finalTier.Id, userId)
+	if err != nil {
+		return err
+	}
+
+	if finalTier.Id > currentUserTierId {
+		// LEVEL UP
+		// 1. Generate Notification code
 		notifCode := utils.GeneratePrefixCode(utils.NotifPrefix)
-
 		description := "Anda sekarang berada di tingkat/tier baru! Selamat datang di " + finalTier.Name + "yang lebih tinggi dengan akses lebih banyak fitur dan manfaat eksklusif."
-
 		descriptionJSON, err := json.Marshal(description)
 		if err != nil {
 			return err
@@ -181,46 +126,70 @@ func (c *Contract) AddUserPointWithDescription(tx pgx.Tx, ctx context.Context, u
 			return fmt.Errorf("error adding notification: %v", err)
 		}
 
-		// Storing Tier Benefit Notification
+		// 2. Storing Tier Benefit Notification
 		listBenefits, _ := c.GetBenefitsByTierId(tx, ctx, finalTier.Id)
 		if len(listBenefits) > 0 {
 			for _, benefit := range listBenefits {
 				notifBenefitCode := utils.GeneratePrefixCode(utils.NotifPrefix)
-
-				description = "Selamat! Anda telah beruntung dan mendapatkan " + benefit.Name + " dari kami. Kami berterima kasih atas partisipasi Anda!"
-
-				descriptionJSON, err := json.Marshal(description)
+				descBenefit := "Selamat! Anda telah beruntung dan mendapatkan " + benefit.Name + " dari kami. Kami berterima kasih atas partisipasi Anda!"
+				descBenefitJSON, err := json.Marshal(descBenefit)
 				if err != nil {
 					return err
 				}
-
-				// Insert data into db
-				err = c.AddNotificationWithTx(tx, ctx, notifBenefitCode, "user", userCode, benefit.RewardCode, utils.RewardsType, utils.RewardsTitle, descriptionJSON, benefit.ImageUrl)
+				err = c.AddNotificationWithTx(tx, ctx, notifBenefitCode, "user", userCode, benefit.RewardCode, utils.RewardsType, utils.RewardsTitle, descBenefitJSON, benefit.ImageUrl)
 				if err != nil {
 					return fmt.Errorf("error adding notification: %v", err)
 				}
 			}
 		}
 
-		sql := `INSERT INTO users_points(
-			user_id,
-			data_source,
-			source_code,
-			point,
-			created_date
-		)
-		VALUES($1, $2, $3, $4, $5);`
-
-		_, err = tx.Exec(ctx, sql, userId, utils.UserPointType["TIER"], finalTier.TierCode, 0, time.Now().In(time.UTC))
+		// 3. Add tier entry to users_points
+		sqlInsertTier := `INSERT INTO users_points(user_id, data_source, source_code, point, created_date) VALUES($1, $2, $3, $4, $5);`
+		_, err = tx.Exec(ctx, sqlInsertTier, userId, utils.UserPointType["TIER"], finalTier.TierCode, 0, time.Now().In(time.UTC))
 		if err != nil {
-			return c.errHandler("model.AddUserPoint", err, utils.ErrAddUserPoint)
+			return c.errHandler("model.handleTierTransition.insertTier", err, utils.ErrAddUserPoint)
 		}
 	} else {
-		sqlUpdatePointAndTier := `UPDATE users SET latest_point = $1 WHERE id = $2;`
+		// DEGRADED
+		var currentTierName string
+		queryCurrentTier := `SELECT COALESCE(name, '') FROM tiers WHERE id = $1;`
+		_ = tx.QueryRow(ctx, queryCurrentTier, currentUserTierId).Scan(&currentTierName)
+		if currentTierName == "" {
+			currentTierName = "Previous Tier"
+		}
+		degradedDesc := "Degraded From " + currentTierName
 
-		_, err = tx.Exec(ctx, sqlUpdatePointAndTier, finalTotalPoint, userId)
+		// 1. Remove current and higher tier entries from users_points
+		sqlDeleteHigherTiers := `DELETE FROM users_points 
+		WHERE user_id = $1 AND data_source = $2 AND source_code IN (
+			SELECT tier_code FROM tiers WHERE id > $3
+		);`
+		_, err = tx.Exec(ctx, sqlDeleteHigherTiers, userId, utils.UserPointType["TIER"], finalTier.Id)
 		if err != nil {
-			return err
+			return c.errHandler("model.handleTierTransition.deleteTier", err, utils.ErrRemovingUserPoint)
+		}
+
+		// 2. Update the previous/lower tier entry's created_date and give description
+		sqlUpdatePrevTier := `UPDATE users_points 
+			SET created_date = $1, description = $2 
+			WHERE id = (
+				SELECT id FROM users_points 
+				WHERE user_id = $3 AND data_source = $4 AND source_code = $5 
+				ORDER BY created_date DESC, id DESC 
+				LIMIT 1
+			);`
+		cmdTag, err := tx.Exec(ctx, sqlUpdatePrevTier, time.Now().In(time.UTC), degradedDesc, userId, utils.UserPointType["TIER"], finalTier.TierCode)
+		if err != nil {
+			return c.errHandler("model.handleTierTransition.updatePrevTier", err, utils.ErrUpdatingTier)
+		}
+
+		// If no entry exists for the lower tier in users_points, insert entry with description
+		if cmdTag.RowsAffected() == 0 {
+			sqlInsertTier := `INSERT INTO users_points(user_id, data_source, source_code, point, description, created_date) VALUES($1, $2, $3, $4, $5, $6);`
+			_, err = tx.Exec(ctx, sqlInsertTier, userId, utils.UserPointType["TIER"], finalTier.TierCode, 0, degradedDesc, time.Now().In(time.UTC))
+			if err != nil {
+				return c.errHandler("model.handleTierTransition.insertTier", err, utils.ErrAddUserPoint)
+			}
 		}
 	}
 
@@ -233,25 +202,25 @@ func (c *Contract) RemoveUserPoint(tx pgx.Tx, ctx context.Context, userId int64,
 		query = `DELETE FROM users_points WHERE user_id = $1 AND data_source = $2 AND source_code = $3`
 	)
 
-	_, err = tx.Exec(ctx, query, userId, dataSource, sourceCode)
+	cmdTag, err := tx.Exec(ctx, query, userId, dataSource, sourceCode)
 	if err != nil {
 		return c.errHandler("model.RemoveUserPoint", err, utils.ErrRemovingUserPoint)
 	}
 
-	// if point is greater than 0 it should
-	// calculate user latest_point
-	if point > 0 {
-		// Get latest point
-		_, currentUserPoint, _, _ := c.GetLatestPointAndTier(tx, ctx, userId)
+	// if point is greater than 0 and a row was deleted, it should
+	// calculate user latest_point and define latest tier
+	if point > 0 && cmdTag.RowsAffected() > 0 {
+		// Get latest point and tier
+		userCode, currentUserPoint, currentUserTierId, _ := c.GetLatestPointAndTier(tx, ctx, userId)
 
 		// Calculate total point and define latest tier
 		finalTotalPoint := currentUserPoint - point
-		sqlUpdatePointAndTier := `UPDATE users SET latest_point = $1 WHERE id = $2;`
-
-		_, err = tx.Exec(ctx, sqlUpdatePointAndTier, finalTotalPoint, userId)
-		if err != nil {
-			return err
+		if finalTotalPoint < 0 {
+			finalTotalPoint = 0
 		}
+		finalTier, _ := c.GetTierByPoinCriteria(tx, ctx, finalTotalPoint)
+
+		return c.handleTierTransition(tx, ctx, userId, userCode, currentUserTierId, finalTier, finalTotalPoint)
 	}
 
 	return nil

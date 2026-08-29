@@ -179,7 +179,7 @@ func (c *Contract) GetUserByEmail(db *pgxpool.Pool, ctx context.Context, email s
 					JOIN roles r ON r.id = users.role_id 
 					WHERE email = $1 AND users.deleted_date IS NULL AND r.deleted_date IS NULL`
 
-	err := db.QueryRow(ctx, sql, email).Scan(
+	err := db.QueryRow(ctx, sql, strings.ToLower(strings.TrimSpace(email))).Scan(
 		&res.ID,
 		&res.UserCode,
 		&res.Email,
@@ -497,7 +497,7 @@ func (c *Contract) UpdateUserEmail(db *pgxpool.Pool, ctx context.Context, userId
 		WHERE user_code = $2
 	`
 
-	_, err := db.Exec(ctx, sql, email, userIdentifier)
+	_, err := db.Exec(ctx, sql, strings.ToLower(strings.TrimSpace(email)), userIdentifier)
 	if err != nil {
 		return c.errHandler("model.UpdateUserEmail", err, utils.ErrUpdatingUserEmail)
 	}
@@ -580,7 +580,7 @@ func (c *Contract) UpdateUser(db *pgxpool.Pool, ctx context.Context, userCode, f
 	`
 
 	currentTime := time.Now().In(time.UTC)
-	_, err := db.Exec(ctx, sql, imageURL, fullName, gender, dateOfBirth, phoneNumber, email, userName, status, currentTime, userCode)
+	_, err := db.Exec(ctx, sql, imageURL, fullName, gender, dateOfBirth, phoneNumber, strings.ToLower(strings.TrimSpace(email)), userName, status, currentTime, userCode)
 	if err != nil {
 		return c.errHandler("model.UpdateUserProfile", err, utils.ErrUpdatingUserProfile)
 	}

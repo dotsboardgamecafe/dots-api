@@ -1219,6 +1219,14 @@ func (h *Contract) RemoveTournamentParticipantAct(w http.ResponseWriter, r *http
 		return
 	}
 
+	if participant.RewardPoint.Int64 > 0 {
+		err = m.RemoveUserPoint(tx, ctx, int64(user.ID), utils.UserPointType["TOURNAMENT_PLAY"], tournamentCode, int(participant.RewardPoint.Int64))
+		if err != nil {
+			h.SendBadRequest(w, err.Error())
+			return
+		}
+	}
+
 	if tournament.BookingPrice <= 0 {
 		err = m.RemoveUserPoint(tx, ctx, int64(user.ID), utils.UserPointType["TOURNAMENT_PAID"], trx.TransactionCode, 0)
 		if err != nil {

@@ -58,6 +58,8 @@ func (c *Contract) RegisterUser(db *pgxpool.Pool, ctx context.Context, fullName,
 		tierId        int64
 		userInsertSQL string
 
+		cleanEmail = strings.ToLower(strings.TrimSpace(email))
+
 		// Generate User Identifier
 		userCode = utils.GeneratePrefixCode(utils.UserPrefix)
 
@@ -68,26 +70,26 @@ func (c *Contract) RegisterUser(db *pgxpool.Pool, ctx context.Context, fullName,
 	)
 
 	// Check for existing unverified email and delete if found
-	err = db.QueryRow(ctx, "SELECT id FROM users WHERE email = $1 AND status_verification = false;", email).Scan(&existingUserId)
+	err = db.QueryRow(ctx, "SELECT id FROM users WHERE email = $1 AND status_verification = false;", cleanEmail).Scan(&existingUserId)
 	if err != nil && err != pgx.ErrNoRows {
-		return userCode, email, c.errHandler("model.CheckExistingUser", err, "Error checking existing unverified user")
+		return userCode, cleanEmail, c.errHandler("model.CheckExistingUser", err, "Error checking existing unverified user")
 	}
 
 	if existingUserId != 0 {
 		_, err = db.Exec(ctx, "DELETE FROM users WHERE id = $1;", existingUserId)
 		if err != nil {
-			return userCode, email, c.errHandler("model.DeleteExistingUser", err, "Error deleting existing unverified user")
+			return userCode, cleanEmail, c.errHandler("model.DeleteExistingUser", err, "Error deleting existing unverified user")
 		}
 	}
 
 	// Check for existing verified email
-	err = db.QueryRow(ctx, "SELECT id FROM users WHERE email = $1 AND status_verification = true;", email).Scan(&existingUserId)
+	err = db.QueryRow(ctx, "SELECT id FROM users WHERE email = $1 AND status_verification = true;", cleanEmail).Scan(&existingUserId)
 	if err != nil && err != pgx.ErrNoRows {
-		return userCode, email, c.errHandler("model.CheckExistingUser", err, "Error checking existing verified user")
+		return userCode, cleanEmail, c.errHandler("model.CheckExistingUser", err, "Error checking existing verified user")
 	}
 
 	if existingUserId != 0 {
-		return userCode, email, errors.New(utils.ErrEmailAlreadyRegistered)
+		return userCode, cleanEmail, errors.New(utils.ErrEmailAlreadyRegistered)
 	}
 
 	// Get the first Novice Tier to store as default value of registered users
@@ -96,7 +98,7 @@ func (c *Contract) RegisterUser(db *pgxpool.Pool, ctx context.Context, fullName,
 	// Insert user data into 'users' table
 	userInsertSQL = `INSERT INTO users (user_code, fullname, date_of_birth, gender, email, phone_number, password, status_verification, status, created_date, latest_tier_id, username, x_player, role_id) 
         VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id`
-	err = db.QueryRow(ctx, userInsertSQL, userCode, fullName, dateOfBirth, gender, email, phoneNumber, passwordHash, false, "active", time.Now().In(time.UTC), tierId, userName, xPlayer, utils.RoleMemberId).Scan(&id)
+	err = db.QueryRow(ctx, userInsertSQL, userCode, fullName, dateOfBirth, gender, cleanEmail, phoneNumber, passwordHash, false, "active", time.Now().In(time.UTC), tierId, userName, xPlayer, utils.RoleMemberId).Scan(&id)
 
 	if err != nil {
 		// Handle specific error cases
@@ -377,7 +379,7 @@ func (c *Contract) CheckTokenAndExpirationUpdateEmail(db *pgxpool.Pool, ctx cont
 			WHERE user_code = $3
 		`
 
-	_, err = tx.Exec(ctx, sql, email, true, userCode)
+	_, err = tx.Exec(ctx, sql, strings.ToLower(strings.TrimSpace(email)), true, userCode)
 	if err != nil {
 		tx.Rollback(ctx)
 		return dataUser, roleData, permissionList, expAt, jwtToken, c.errHandler("model.CheckTokenAndExpiredForgotPassword", err, utils.ErrUpdatingUserEmail)
@@ -390,7 +392,7 @@ func (c *Contract) CheckTokenAndExpirationUpdateEmail(db *pgxpool.Pool, ctx cont
 	}
 
 	// Set New Email
-	dataUser.Email.String = email
+	dataUser.Email.String = strings.ToLower(strings.TrimSpace(email))
 	return dataUser, roleData, permissionList, expAt, jwtToken, nil
 }
 
@@ -399,6 +401,8 @@ func (c *Contract) RequestForgotPassword(db *pgxpool.Pool, ctx context.Context, 
 		err error
 		// Generate Token 50 digits
 		token, _ = utils.Generate(`[a-zA-Z0-9]{50}`)
+
+		cleanEmail = strings.ToLower(strings.TrimSpace(email))
 
 		// Forgot password route
 		linkNewPass = c.Config.GetString("web_url") + utils.ResetPassRoute + token + utils.TypeRoute + utils.ForgotPassword
@@ -411,19 +415,22 @@ func (c *Contract) RequestForgotPassword(db *pgxpool.Pool, ctx context.Context, 
 	)
 
 	// Check email and get user data
-	userData, err := c.GetUserByEmail(db, ctx, email)
+	userData, err := c.GetUserByEmail(db, ctx, cleanEmail)
 	if err != nil {
+		if err.Error() == utils.EmptyData {
+			return errors.New(utils.ErrInvalidEmailPassword)
+		}
 		return c.errHandler("model.RequestForgotPassword", err, utils.ErrInvalidEmailPassword)
 	}
 
 	// Sending Forgot Password Mail
-	err = mailContract.SendMail(mail.UserForgotPassword, mail.MailSubj[mail.UserForgotPassword], email, mail.EmailData{Name: userData.FullName, Email: email, Link: linkNewPass})
+	err = mailContract.SendMail(mail.UserForgotPassword, mail.MailSubj[mail.UserForgotPassword], cleanEmail, mail.EmailData{Name: userData.FullName, Email: cleanEmail, Link: linkNewPass})
 	if err != nil {
 		return c.errHandler("model.RequestForgotPassword", err, utils.ErrSendingResetPasswordEmail)
 	}
 
 	// Insert verification data into 'verifications' table
-	err = c.insertVerificationData(db, ctx, utils.User, utils.ForgotPassword, email, token, false, expAt)
+	err = c.insertVerificationData(db, ctx, utils.User, utils.ForgotPassword, cleanEmail, token, false, expAt)
 	if err != nil {
 		return c.errHandler("model.RequestForgotPassword", err, utils.ErrAddingResetPasswordVerification)
 	}
@@ -437,6 +444,8 @@ func (c *Contract) RequestVerifyEmailUser(db *pgxpool.Pool, ctx context.Context,
 		// Generate Token 50 digits
 		token, _ = utils.Generate(`[a-zA-Z0-9]{50}`)
 
+		cleanEmail = strings.ToLower(strings.TrimSpace(email))
+
 		// Determine expired at
 		expAt = time.Now().UTC().AddDate(0, 0, 1)
 
@@ -445,23 +454,26 @@ func (c *Contract) RequestVerifyEmailUser(db *pgxpool.Pool, ctx context.Context,
 	)
 
 	// Check email and get user data
-	userData, err := c.GetUserByEmail(db, ctx, email)
+	userData, err := c.GetUserByEmail(db, ctx, cleanEmail)
 	if err != nil {
+		if err.Error() == utils.EmptyData {
+			return errors.New(utils.ErrInvalidEmailPassword)
+		}
 		return c.errHandler("model.RequestVerifyEmailUser", err, utils.ErrInvalidEmailPassword)
 	}
 
 	switch types {
 	case utils.VerifyRegistration:
-		link := c.Config.GetString("web_url") + utils.VerifyTokenRoute + token + utils.TypeRoute + types + "&email=" + email
+		link := c.Config.GetString("web_url") + utils.VerifyTokenRoute + token + utils.TypeRoute + types + "&email=" + cleanEmail
 
-		err = mailContract.SendMail(mail.UserVerifyEmail, mail.MailSubj[mail.UserVerifyEmail], email, mail.EmailData{Name: userData.FullName, Email: email, Link: link})
+		err = mailContract.SendMail(mail.UserVerifyEmail, mail.MailSubj[mail.UserVerifyEmail], cleanEmail, mail.EmailData{Name: userData.FullName, Email: cleanEmail, Link: link})
 		if err != nil {
 			return c.errHandler("model.RequestVerifyEmailUser", err, utils.ErrSendingVerifyEmail)
 		}
 	case utils.ForgotPassword:
 		link := c.Config.GetString("web_url") + utils.ForgotPasswordRoute + token + utils.TypeRoute + types
 
-		err = mailContract.SendMail(mail.UserForgotPassword, mail.MailSubj[mail.UserForgotPassword], email, mail.EmailData{Name: userData.FullName, Email: email, Link: link})
+		err = mailContract.SendMail(mail.UserForgotPassword, mail.MailSubj[mail.UserForgotPassword], cleanEmail, mail.EmailData{Name: userData.FullName, Email: cleanEmail, Link: link})
 		if err != nil {
 			return c.errHandler("model.RequestVerifyEmailUser", err, utils.ErrSendingForgotPasswordEmail)
 		}
@@ -469,7 +481,7 @@ func (c *Contract) RequestVerifyEmailUser(db *pgxpool.Pool, ctx context.Context,
 		return errors.New(utils.ErrInvalidSendingEmailType)
 	}
 
-	err = c.insertVerificationData(db, ctx, utils.User, types, email, token, false, expAt)
+	err = c.insertVerificationData(db, ctx, utils.User, types, cleanEmail, token, false, expAt)
 	if err != nil {
 		return c.errHandler("model.RequestVerifyEmailUser", err, utils.ErrAddingResetPasswordVerification)
 	}
@@ -482,6 +494,8 @@ func (c *Contract) RequestVerifyUpdateEmailUser(db *pgxpool.Pool, ctx context.Co
 		err error
 		// Generate Token 50 digits
 		token, _ = utils.Generate(`[a-zA-Z0-9]{50}`)
+
+		cleanEmail = strings.ToLower(strings.TrimSpace(email))
 
 		// Determine expired at
 		expAt = time.Now().UTC().Add(time.Minute * 5)
@@ -498,12 +512,12 @@ func (c *Contract) RequestVerifyUpdateEmailUser(db *pgxpool.Pool, ctx context.Co
 
 	link := c.Config.GetString("web_url") + utils.VerifyTokenEmailRoute + token + utils.TypeRoute + types + utils.UserCodeRoute + userCode
 
-	err = mailContract.SendMail(mail.UserUpdateEmail, mail.MailSubj[mail.UserUpdateEmail], email, mail.EmailData{Name: userData.FullName, Email: email, Link: link})
+	err = mailContract.SendMail(mail.UserUpdateEmail, mail.MailSubj[mail.UserUpdateEmail], cleanEmail, mail.EmailData{Name: userData.FullName, Email: cleanEmail, Link: link})
 	if err != nil {
 		return c.errHandler("model.RequestVerifyEmailUser", err, utils.ErrSendingUpdateEmail)
 	}
 
-	err = c.insertVerificationData(db, ctx, utils.User, types, email, token, false, expAt)
+	err = c.insertVerificationData(db, ctx, utils.User, types, cleanEmail, token, false, expAt)
 	if err != nil {
 		return c.errHandler("model.RequestVerifyEmailUser", err, utils.ErrAddingResetPasswordVerification)
 	}
@@ -546,7 +560,7 @@ func (c *Contract) insertVerificationData(db *pgxpool.Pool, ctx context.Context,
 	sql := `INSERT INTO verifications(actor_type, verification_type, email, token, is_used, expired_date, created_date)
         VALUES($1, $2, $3, $4, $5, $6, $7)`
 
-	_, err := db.Exec(ctx, sql, actorType, verificationType, email, token, isUsed, expiredDate, time.Now().In(time.UTC))
+	_, err := db.Exec(ctx, sql, actorType, verificationType, strings.ToLower(strings.TrimSpace(email)), token, isUsed, expiredDate, time.Now().In(time.UTC))
 	if err != nil {
 		return err
 	}
