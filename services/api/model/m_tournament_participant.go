@@ -10,6 +10,8 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
+type TournamentParticipantAdditionalInfo = ParticipantAdditionalInfo
+
 type (
 	TournamentParticipantEnt struct {
 		Id              int64          `db:"id"`
@@ -18,7 +20,7 @@ type (
 		StatusWinner    bool           `db:"status_winner"`
 		Status          string         `db:"status"`
 		Position        int            `db:"position"`
-		AdditionalInfo  sql.NullString `db:"additional_info"`
+		AdditionalInfo  TournamentParticipantAdditionalInfo `db:"additional_info"`
 		RewardPoint     sql.NullInt64  `db:"reward_point"`
 		TransactionCode sql.NullString `db:"transaction_code"`
 	}
@@ -33,7 +35,7 @@ type (
 		UserXPlayer         string         `db:"user_x_player"`
 		StatusWinner        bool           `db:"status_winner"`
 		Status              string         `db:"status"`
-		AdditionalInfo      sql.NullString `db:"additional_info"`
+		AdditionalInfo      TournamentParticipantAdditionalInfo `db:"additional_info"`
 		LatestTier          sql.NullString `db:"latest_tier"`
 		Position            int            `db:"position"`
 		RewardPoint         sql.NullInt64  `db:"reward_point"`
@@ -257,7 +259,7 @@ func (c *Contract) CountTournamentWinnerByUserId(db *pgxpool.Pool, ctx context.C
 	return total, nil
 }
 
-func (c *Contract) InsertOneTournamentParticipant(tx pgx.Tx, ctx context.Context, tournamentId, userId int64, statusWinner bool, position int, status string, additionalInfo string, rewardPoint int64, transactionCode string) error {
+func (c *Contract) InsertOneTournamentParticipant(tx pgx.Tx, ctx context.Context, tournamentId, userId int64, statusWinner bool, position int, status string, additionalInfo TournamentParticipantAdditionalInfo, rewardPoint int64, transactionCode string) error {
 	var (
 		err   error
 		query = `INSERT INTO tournament_participants(tournament_id, user_id, status_winner, position, status, additional_info, reward_point, transaction_code) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`
@@ -269,7 +271,7 @@ func (c *Contract) InsertOneTournamentParticipant(tx pgx.Tx, ctx context.Context
 	return nil
 }
 
-func (c *Contract) UpdateTournamentParticipant(tx pgx.Tx, ctx context.Context, tournamentId, userId int64, statusWinner bool, position int, status string, additionalInfo string, rewardPoint int64, transactionCode string) error {
+func (c *Contract) UpdateTournamentParticipant(tx pgx.Tx, ctx context.Context, tournamentId, userId int64, statusWinner bool, position int, status string, additionalInfo TournamentParticipantAdditionalInfo, rewardPoint int64, transactionCode string) error {
 	var (
 		err   error
 		query = `UPDATE tournament_participants 

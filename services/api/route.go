@@ -227,6 +227,7 @@ func AppSubsRoute(r chi.Router, app *bootstrap.App) {
 			r.With(app.VerifyAccessRoute).Post("/book", nrWrap(h.BookingTournamentAct, app.NewRelic))
 
 			r.Route("/participants", func(r chi.Router) {
+				r.With(app.VerifyAccessRoute).Post("/", nrWrap(h.AddTournamentParticipantsAct, app.NewRelic))
 				r.With(app.VerifyAccessRoute).Delete("/", nrWrap(h.RemoveTournamentParticipantAct, app.NewRelic))
 			})
 		})

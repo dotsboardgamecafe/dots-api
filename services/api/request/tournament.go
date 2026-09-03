@@ -38,6 +38,10 @@ type TournamentParticipantRemoveReq struct {
 	UserCode string `json:"user_code" validate:"required"`
 }
 
+type AddTournamentParticipantsReq struct {
+	UserCodes []string `json:"user_codes" validate:"required,min=1"`
+}
+
 type TournamentParticipant struct {
 	Position  int    `json:"position"`
 	BadgeCode string `json:"badge_code"`

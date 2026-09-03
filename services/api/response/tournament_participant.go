@@ -7,7 +7,7 @@ type TournamentParticipantRes struct {
 	UserStyle      UserStyleRes `json:"user_style"`
 	StatusWinner   bool         `json:"status_winner"`
 	Status         string       `json:"status"`
-	AdditionalInfo string       `json:"additional_info"`
+	AdditionalInfo ParticipantAdditionalInfoRes `json:"additional_info"`
 	Position       int          `json:"position"`
 	RewardPoint    int          `json:"reward_point"`
 	LatestTier     string       `json:"latest_tier"`
